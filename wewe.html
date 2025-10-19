@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOVA | SMART CITY</title>
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="nova.png" type="image/x-icon" />
+
+  <!-- Font Awesome -->
+  <link 
+    rel="stylesheet" 
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" 
+  />
+
+  <!-- Google Fonts -->
+  <link 
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" 
+    rel="stylesheet" 
+  />
+
+  <!-- STYLES GÉNÉRAUX -->
+  <style>
+    /* ------------------------ GLOBAL ------------------------ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+
+    body {
+      background-color: #f9f9f9;
+      overflow-x: hidden;
+    }
+
+    /* ------------------------ NAVBAR ------------------------ */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: #0d253a;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+      padding: 10px 70px;
+    }
+
+    nav .logo img {
+      width: 150px;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 40px;
+    }
+
+    nav ul li a {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 18px;
+      transition: 0.3s;
+    }
+
+    nav ul li a:hover,
+    nav ul li a.active {
+      color: #2ecc71;
+    }
+
+    nav .icon i {
+      font-size: 28px;
+      color: #2ecc71;
+      cursor: pointer;
+    }
+
+    /* ------------------------ SECTION HERO ------------------------ */
+    .hero-section {
+      background: linear-gradient(135deg, #0d253a 0%, #1f3b4d 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 180px 80px 100px;
+      color: #fff;
+    }
+
+    .hero-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1300px;
+      width: 100%;
+      flex-wrap: wrap;
+      gap: 40px;
+    }
+
+    .hero-text {
+      flex: 1 1 500px;
+    }
+
+    .hero-text h4 {
+      color: #2ecc71;
+      font-size: 42px;
+      font-weight: 700;
+      margin-bottom: 15px;
+    }
+
+    .hero-text h1 {
+      font-size: 50px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+
+    .hero-text h2 {
+      font-size: 26px;
+      font-weight: 400;
+      color: #cfd8dc;
+      margin-bottom: 35px;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 20px;
+    }
+
+    .hero-buttons a {
+      padding: 14px 35px;
+      border-radius: 50px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      border: 2px solid #2ecc71;
+      color: #fff;
+      background: transparent;
+    }
+
+    .btn-primary:hover,
+    .btn-secondary:hover {
+      background: #2ecc71;
+      color: #0d253a;
+    }
+
+    .hero-image {
+      flex: 1 1 450px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .hero-image img {
+      width: 100%;
+      max-width: 1000px;
+      filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4));
+      transition: transform 0.3s ease;
+    }
+
+    .hero-image img:hover {
+      transform: translateY(-8px);
+    }
+
+    /* ------------------------ MODAL ------------------------ */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(13, 37, 58, 0.7);
+      backdrop-filter: blur(6px);
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+
+    .modal-content {
+      display: flex;
+      width: 800px;
+      max-width: 95%;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      animation: showUp 0.4s ease;
+      border-color: #0d253a;
+    }
+
+    @keyframes showUp {
+      from { opacity: 0; transform: translateY(-30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Partie gauche (image) */
+    .modal-left {
+      width: 50%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .modal-left img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Partie droite (formulaire) */
+    .modal-right {
+      width: 50%;
+      padding: 40px;
+      position: relative;
+    }
+
+    .modal-right h2 {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #0d253a;
+    }
+
+    .modal-right label {
+      font-size: 15px;
+      color: #0d253a;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .modal-right input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #0d253a;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+
+    .modal-right .forgot {
+      font-size: 13px;
+      color: #0d253a;
+      text-decoration: none;
+      display: inline-block;
+      margin-bottom: 15px;
+      transition: 0.3s;
+    }
+
+    .modal-right .forgot:hover {
+      color: #0d253a;
+      text-decoration: underline;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 12px;
+      border: none ;
+      background: #2ecc71;
+      color: #0d253a;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .btn-login:hover {
+      background: #25b05c;
+    }
+
+    .close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 26px;
+      color: #555;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .close:hover {
+      color: #000;
+    }
+
+    /* ------------------------ RESPONSIVE ------------------------ */
+    @media (max-width: 992px) {
+      .hero-section {
+        padding: 140px 40px 60px;
+      }
+      .hero-content {
+        flex-direction: column;
+        text-align: center;
+      }
+      .hero-text h1 {
+        font-size: 40px;
+      }
+      .hero-text h4 {
+        font-size: 34px;
+      }
+      .hero-buttons {
+        justify-content: center;
+      }
+      .hero-image img {
+        max-width: 700px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .modal-content {
+        flex-direction: column;
+      }
+      .modal-left {
+        display: none;
+      }
+      .modal-right {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ------------------------ NAVBAR ------------------------ -->
+  <nav>
+    <div class="logo">
+      <a href="home.html"><img src="nova.png" alt="Logo NOVA" /></a>
+    </div>
+
+    <ul>
+      <li><a href="home.html" class="active">Accueil</a></li>
+      <li><a href="boisson_krono.html">adam</a></li>
+      <li><a href="order.html">nadi</a></li>
+      <li><a href="contacter.html">sba3</a></li>
+    </ul>
+
+    <div class="icon"><i class="fa-solid fa-circle-user"></i></div>
+  </nav>
+
+  <!-- ------------------------ HERO SECTION ------------------------ -->
+  <section class="hero-section">
+    <div class="hero-content">
+      <div class="hero-text">
+        <h4>Bienvenue dans le Futur</h4>
+        <h1>NOVA Smart City</h1>
+        <h2>La ville intelligente à portée de main</h2>
+        <div class="hero-buttons">
+          <a href="#" class="btn-primary">Explorer</a>
+          <a href="#" class="btn-secondary">Nous Contacter</a>
+        </div>
+      </div>
+
+      <div class="hero-image">
+        <img src="voit.png" alt="Smart City" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------ MODAL LOGIN ------------------------ -->
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      
+      <div class="modal-left">
+        <img src="nova.png" alt="Background" />
+      </div>
+
+      <div class="modal-right">
+        <span class="close">&times;</span>
+        <h2>LOGIN</h2>
+
+        <form>
+          <label>Email</label>
+          <input type="email" placeholder="abc@gmail.com" required />
+
+          <label>Password</label>
+          <input type="password" placeholder="********" required />
+
+          <a href="#" class="forgot">Mot de passe oublié ?</a>
+          <button type="submit" class="btn-login">Se connecter</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ------------------------ SCRIPT ------------------------ -->
+  <script>
+    const modal = document.getElementById("loginModal");
+    const icon = document.querySelector(".icon i");
+    const closeBtn = document.querySelector(".close");
+
+    icon.onclick = () => modal.style.display = "flex";
+    closeBtn.onclick = () => modal.style.display = "none";
+
+    window.onclick = (e) => {
+      if (e.target === modal) modal.style.display = "none";
+    };
+  </script>
+
+</body>
+</html>
