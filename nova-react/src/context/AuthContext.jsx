@@ -3,7 +3,7 @@ import monkeyDefault from '../assets/monkey.jpeg';
 
 const AuthContext = createContext();
 
-export const API_BASE = 'http://localhost:3000/api';
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 export const ORIGIN = API_BASE.replace('/api', '');
 
 export function resolvePhotoUrl(photo_url) {
