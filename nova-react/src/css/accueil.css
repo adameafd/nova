@@ -1,0 +1,149 @@
+.welcome-section {
+  padding: 28px 32px;
+  background: linear-gradient(135deg, var(--blue), var(--green-dark));
+  color: #fff;
+  border-radius: var(--radius);
+  margin: 24px;
+  box-shadow: var(--shadow);
+}
+
+.welcome-section h1 {
+  font-size: 24px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.welcome-section .username {
+  color: #00ff8c;
+  font-weight: 700;
+}
+
+.welcome-section p {
+  opacity: 0.85;
+  font-size: 14px;
+}
+
+.dashboard-overview {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+  margin: 0 24px 24px;
+}
+
+.left-panel,
+.right-panel {
+  background: var(--panel);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  border: 1px solid var(--border);
+}
+
+.left-panel h2,
+.right-panel h2 {
+  color: var(--green-dark);
+  margin-bottom: 16px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notification-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--light-bg);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--green);
+  font-size: 14px;
+  transition: var(--transition);
+}
+
+.notification-list li:hover {
+  background: var(--hover);
+}
+
+.notification-list li i {
+  font-size: 16px;
+  color: var(--green);
+  min-width: 20px;
+}
+
+.notification-list li .notif-title {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.notification-list li .notif-desc {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.user-status {
+  margin-bottom: 16px;
+}
+
+.user-status h3 {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-status ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.user-status ul li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--light-bg);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  transition: var(--transition);
+}
+
+.user-status ul li:hover {
+  background: var(--hover);
+}
+
+.user-status img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--green);
+}
+
+@media (max-width: 768px) {
+  .dashboard-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-section {
+    margin: 16px;
+  }
+
+  .dashboard-overview {
+    margin: 0 16px 16px;
+  }
+}

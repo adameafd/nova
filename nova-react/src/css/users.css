@@ -1,0 +1,147 @@
+.users-container {
+  padding: 24px;
+  background: var(--light-bg);
+  min-height: calc(100vh - 70px);
+}
+
+.users-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.users-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table th,
+.users-table td {
+  padding: 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.users-table th {
+  background: var(--hover);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.users-table tbody tr {
+  transition: var(--transition);
+}
+
+.users-table tbody tr:hover {
+  background: var(--hover);
+}
+
+.users-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.user-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--green);
+  flex-shrink: 0;
+}
+
+.user-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.user-id {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.role-badge.admin { background: #e67e22; color: #fff; }
+.role-badge.tech { background: #3498db; color: #fff; }
+.role-badge.data { background: #9b59b6; color: #fff; }
+
+[data-theme="dark"] .role-badge.admin { background: #d35400; }
+[data-theme="dark"] .role-badge.tech { background: #2980b9; }
+[data-theme="dark"] .role-badge.data { background: #8e44ad; }
+
+.form-error {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #f5c6cb;
+}
+
+[data-theme="dark"] .form-error {
+  background: #5a1a1a;
+  color: #ff9999;
+  border-color: #7a2a2a;
+}
+
+@media (max-width: 768px) {
+  .users-container {
+    padding: 16px;
+  }
+
+  .users-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .users-table {
+    font-size: 13px;
+  }
+
+  .users-table th,
+  .users-table td {
+    padding: 12px 8px;
+  }
+
+  .users-title {
+    font-size: 20px;
+  }
+
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+  }
+}
