@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-nova_secure_pwd_2025}
+      MYSQL_DATABASE: nova
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./nova_back/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # No ports exposed — only accessible from backend container
+
+  backend:
+    build: ./nova_back
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-nova_secure_pwd_2025}
+      DB_NAME: nova
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./nova-react
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+  uploads_data:

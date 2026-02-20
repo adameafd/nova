@@ -6,8 +6,11 @@ const app = require("./app");
 
 const server = http.createServer(app);
 
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",")
+  : ["http://localhost:5173", "http://localhost"];
 const io = new Server(server, {
-  cors: { origin: "*" },
+  cors: { origin: allowedOrigins, credentials: true },
 });
 
 const onlineUsers = new Map();

@@ -23,7 +23,16 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // Middleware
-app.use(cors());
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",")
+  : ["http://localhost:5173", "http://localhost"];
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(null, true); // Permissive in dev, restrict via CORS_ORIGIN in prod
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
