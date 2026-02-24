@@ -15,6 +15,9 @@ const io = new Server(server, {
   cors: { origin: allowedOrigins, credentials: true },
 });
 
+// Expose io aux controllers (ex: telemetry → emit "telemetry_update")
+app.locals.io = io;
+
 // uid (string) → socketId
 const onlineUsers = new Map();
 

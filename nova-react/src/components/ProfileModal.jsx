@@ -92,7 +92,7 @@ export default function ProfileModal({ open, onClose }) {
                 <span>{user.email}</span>
               )}
             </p>
-            <p><strong>Role : </strong><span style={{ textTransform: 'capitalize' }}>{user.role}</span></p>
+            <p><strong>Rôle : </strong><span style={{ textTransform: 'capitalize' }}>{user.role}</span></p>
             <p><strong>Inscription : </strong>
               <span>{user.date_creation ? new Date(user.date_creation).toLocaleDateString('fr-FR') : '-'}</span>
             </p>

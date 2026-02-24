@@ -11,6 +11,7 @@ const stockRoutes = require("./routes/stock.routes");
 const interventionsRoutes = require("./routes/interventions.routes");
 const notificationsRoutes = require("./routes/notifications.routes");
 const comptesRendusRoutes = require("./routes/comptesRendus.routes");
+const telemetryRoutes     = require("./routes/telemetry.routes");
 const errorHandler = require("./middlewares/errorHandler");
 const { setupSwagger } = require("./swagger");
 
@@ -56,6 +57,7 @@ app.use("/api/stock", stockRoutes);
 app.use("/api/interventions", interventionsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/compte-rendus", comptesRendusRoutes);
+app.use("/api/telemetry",    telemetryRoutes);
 
 // 404 handler for unmatched routes
 app.use((req, res) => {
