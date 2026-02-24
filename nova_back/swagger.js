@@ -23,6 +23,7 @@ const options = {
       { name: "Interventions", description: "Interventions techniques" },
       { name: "Comptes Rendus", description: "Rapports uploadés" },
       { name: "Notifications", description: "Notifications broadcast et privées" },
+      { name: "Telemetry", description: "Télémétrie IoT — réception et consultation des données ESP32 (base nova_telemetry)" },
     ],
     components: {
       schemas: {
@@ -75,6 +76,86 @@ const options = {
             is_read:    { type: "integer", enum: [0, 1] },
             created_at: { type: "string", format: "date-time" },
           },
+        },
+        TelemetryPayload: {
+          type: "object",
+          description: "Payload JSON envoyé par l'ESP32",
+          required: ["device", "timestamp_ms"],
+          properties: {
+            device: {
+              type: "object",
+              required: ["id"],
+              properties: {
+                id:       { type: "string", example: "esp32-harvester-1", description: "Identifiant unique du device" },
+                firmware: { type: "string", example: "1.0.0", nullable: true },
+              },
+            },
+            timestamp_ms: { type: "integer", example: 1740393600000, description: "Timestamp device (ms ou s)" },
+            supercap: {
+              type: "object",
+              nullable: true,
+              properties: {
+                voltage:  { type: "number", example: 1.85, description: "Tension supercap (V)" },
+                energy_j: { type: "number", example: 17.1, description: "Énergie stockée (J)" },
+              },
+            },
+            battery: {
+              type: "object",
+              nullable: true,
+              properties: {
+                voltage:   { type: "number", example: 3.92, description: "Tension batterie (V)" },
+                current_a: { type: "number", example: 0.035, description: "Courant batterie (A)" },
+                direction: { type: "string", example: "discharge", description: "charge ou discharge" },
+              },
+            },
+            system: {
+              type: "object",
+              nullable: true,
+              properties: {
+                led_on: { type: "boolean", example: true },
+                status: { type: "string", example: "OK" },
+              },
+            },
+          },
+        },
+        TelemetryNormalized: {
+          type: "object",
+          description: "Donnée normalisée retournée par l'API et émise via Socket.io (telemetry_update)",
+          properties: {
+            deviceId:   { type: "string", example: "esp32-harvester-1" },
+            receivedAt: { type: "string", format: "date-time", example: "2026-02-24T10:00:00.000Z" },
+            timestamp:  { type: "integer", example: 1740393600000 },
+            supercap: {
+              type: "object",
+              properties: {
+                voltage:  { type: "number", nullable: true, example: 1.85 },
+                energy_j: { type: "number", nullable: true, example: 17.1 },
+              },
+            },
+            battery: {
+              type: "object",
+              properties: {
+                voltage:   { type: "number", nullable: true, example: 3.92 },
+                current_a: { type: "number", nullable: true, example: 0.035 },
+                direction: { type: "string", nullable: true, example: "discharge" },
+              },
+            },
+            system: {
+              type: "object",
+              properties: {
+                led_on: { type: "boolean", nullable: true, example: true },
+                status: { type: "string", nullable: true, example: "OK" },
+              },
+            },
+          },
+        },
+      },
+      securitySchemes: {
+        ApiKeyAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "x-api-key",
+          description: "Clé API requise pour POST /api/telemetry. Configurée via TELEMETRY_API_KEY dans .env.",
         },
       },
     },
@@ -822,6 +903,146 @@ const options = {
           summary: "Supprimer une notification",
           parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
           responses: { 200: { description: "Notification supprimée" } },
+        },
+      },
+
+      // ── Telemetry IoT ─────────────────────────────────────────────────
+      "/api/telemetry": {
+        post: {
+          tags: ["Telemetry"],
+          summary: "Réception données ESP32",
+          description: "Endpoint appelé par l'ESP32. Enregistre les données dans nova_telemetry (devices + mesures + supercap + batterie + systeme) et émet un événement Socket.io `telemetry_update`.",
+          security: [{ ApiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TelemetryPayload" },
+                example: {
+                  device: { id: "esp32-harvester-1", firmware: "1.0.0" },
+                  timestamp_ms: 1740393600000,
+                  supercap:  { voltage: 1.85, energy_j: 17.1 },
+                  battery:   { voltage: 3.92, current_a: 0.035, direction: "discharge" },
+                  system:    { led_on: true, status: "OK" },
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Données enregistrées + Socket.io émis",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      ok:   { type: "boolean", example: true },
+                      id:   { type: "integer", description: "ID mesure insérée" },
+                      data: { $ref: "#/components/schemas/TelemetryNormalized" },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: "Payload invalide (device.id manquant, timestamp_ms non numérique, valeurs négatives)" },
+            401: { description: "Clé API manquante ou invalide" },
+          },
+        },
+      },
+      "/api/telemetry/latest": {
+        get: {
+          tags: ["Telemetry"],
+          summary: "Dernière mesure d'un device",
+          parameters: [
+            { name: "deviceId", in: "query", required: true, schema: { type: "string" }, example: "esp32-harvester-1" },
+          ],
+          responses: {
+            200: {
+              description: "Mesure la plus récente",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/TelemetryNormalized" } } },
+            },
+            400: { description: "deviceId manquant" },
+            404: { description: "Aucune mesure pour ce device" },
+          },
+        },
+      },
+      "/api/telemetry/history": {
+        get: {
+          tags: ["Telemetry"],
+          summary: "Historique des mesures d'un device",
+          description: "Retourne jusqu'à 1000 mesures sur la fenêtre temporelle choisie, ordonnées par timestamp ASC.",
+          parameters: [
+            { name: "deviceId", in: "query", required: true, schema: { type: "string" }, example: "esp32-harvester-1" },
+            {
+              name: "range", in: "query", schema: { type: "string", enum: ["10m", "1h", "24h", "7d"], default: "10m" },
+              description: "10m = 10 minutes, 1h = 1 heure, 24h = 24 heures, 7d = 7 jours",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Tableau de mesures normalisées",
+              content: {
+                "application/json": {
+                  schema: { type: "array", items: { $ref: "#/components/schemas/TelemetryNormalized" } },
+                },
+              },
+            },
+            400: { description: "deviceId manquant" },
+          },
+        },
+      },
+      "/api/telemetry/devices": {
+        get: {
+          tags: ["Telemetry"],
+          summary: "Liste des devices enregistrés",
+          description: "Retourne tous les ESP32 connus avec leur firmware et la date de dernière mesure.",
+          responses: {
+            200: {
+              description: "Tableau de devices",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        device_id:  { type: "string", example: "esp32-harvester-1" },
+                        firmware:   { type: "string", nullable: true, example: "1.0.0" },
+                        created_at: { type: "string", format: "date-time" },
+                        last_seen:  { type: "string", format: "date-time", nullable: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/telemetry/test": {
+        get: {
+          tags: ["Telemetry"],
+          summary: "Vérification connexion nova_telemetry",
+          description: "Vérifie que la base nova_telemetry est accessible et liste les tables présentes.",
+          responses: {
+            200: {
+              description: "Connexion OK",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      ok:       { type: "boolean" },
+                      database: { type: "string", example: "nova_telemetry" },
+                      tables:   { type: "array", items: { type: "string" } },
+                      error:    { type: "string", nullable: true },
+                    },
+                  },
+                },
+              },
+            },
+            503: { description: "Base de données inaccessible" },
+          },
         },
       },
     },

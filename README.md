@@ -1,7 +1,7 @@
 # NOVA — Smart City Management Platform
 
 Plateforme de gestion de ville intelligente permettant le suivi des alertes citoyennes,
-la gestion des interventions techniques, la messagerie interne et le monitoring IoT.
+la gestion des interventions techniques, la messagerie interne et le monitoring IoT en temps réel.
 
 ## Stack technique
 
@@ -20,16 +20,16 @@ la gestion des interventions techniques, la messagerie interne et le monitoring 
 ## Architecture
 
 ```
-┌──────────────────┐     HTTP / WS     ┌──────────────────┐     SQL     ┌─────────┐
-│   React SPA      │ ◄──────────────► │   Express API    │ ◄────────► │  MySQL  │
-│   (port 80)      │                   │   (port 3000)    │            │  (3306) │
-└──────────────────┘                   └──────────────────┘            └─────────┘
-                                              ▲
-                                              │ MQTT (prévu)
-                                       ┌──────┴──────┐
-                                       │  Capteurs   │
-                                       │  IoT        │
-                                       └─────────────┘
+┌──────────────────┐   HTTP / WS    ┌──────────────────┐   SQL   ┌──────────────┐
+│   React SPA      │ ◄────────────► │   Express API    │ ◄─────► │  MySQL       │
+│   (port 5173)    │                │   (port 3000)    │         │  nova (BDD)  │
+└──────────────────┘                └──────────────────┘         └──────────────┘
+                                           ▲                     ┌──────────────┐
+                                           │ POST /api/telemetry │  MySQL       │
+                                    ┌──────┴──────┐        ◄────►│  nova_telemetry│
+                                    │  ESP32      │              └──────────────┘
+                                    │  (IoT node) │
+                                    └─────────────┘
 ```
 
 Voir [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) pour le détail complet.
@@ -47,6 +47,7 @@ Voir [docs/DATABASE.md](docs/DATABASE.md) pour le schéma de base de données.
 - **Utilisateurs** : gestion des comptes (CRUD + photo de profil)
 - **Comptes rendus** : consultation et suppression des rapports uploadés
 - **Unité de contrôle** : monitoring des capteurs et unités
+- **Dashboard IoT** : télémétrie ESP32 en temps réel (supercap, batterie, système)
 
 ### Technicien (rôle : technicien)
 - Alertes publiques assignées (changement de statut)
@@ -73,40 +74,57 @@ Voir [docs/DATABASE.md](docs/DATABASE.md) pour le schéma de base de données.
 - MySQL 8
 - npm
 
-### 1. Base de données
+### 1. Base de données principale
 ```bash
 mysql -u root -p < nova_back/sql/init.sql
 ```
 
 Puis créer manuellement la table `alertes_internes` (voir [docs/DATABASE.md](docs/DATABASE.md#alertes_internes)).
 
-### 2. Backend
+### 2. Base de données IoT (nova_telemetry)
+```bash
+mysql -u root -p < nova_back/sql/init_telemetry.sql
+```
+
+Crée la base `nova_telemetry` avec les tables : `devices`, `mesures`, `supercap`, `batterie`, `systeme`.
+
+### 3. Backend
 ```bash
 cd nova_back
 cp .env.example .env    # Configurer les variables
 npm install
-npm run dev             # Démarre sur http://localhost:3000
+node server.js          # Démarre sur http://localhost:3000
 ```
 
-### 3. Frontend
+### 4. Frontend
 ```bash
 cd nova-react
 npm install
 npm run dev             # Démarre sur http://localhost:5173
 ```
 
-### 4. Documentation API
+### 5. Documentation API
 Démarrer le backend puis ouvrir : http://localhost:3000/api-docs
 
 ## Variables d'environnement (nova_back/.env)
 
 ```env
+# Base de données principale
 DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=your_password
 DB_NAME=nova
 PORT=3000
 CORS_ORIGIN=http://localhost:5173
+
+# Base de données IoT (telemetry)
+DB_TELEMETRY_HOST=localhost
+DB_TELEMETRY_USER=root
+DB_TELEMETRY_PASSWORD=your_password
+DB_TELEMETRY_NAME=nova_telemetry
+
+# Authentification API IoT (laisser vide pour désactiver en dev)
+TELEMETRY_API_KEY=
 ```
 
 ## Installation Docker
@@ -137,7 +155,7 @@ Nova---406-main/
 ├── README.md
 ├── docs/
 │   ├── ARCHITECTURE.md       # Architecture système + flux de données
-│   └── DATABASE.md           # Schéma complet de la BDD
+│   └── DATABASE.md           # Schéma complet des BDD (nova + nova_telemetry)
 ├── nova_back/                # API Backend
 │   ├── Dockerfile
 │   ├── .env.example
@@ -145,12 +163,14 @@ Nova---406-main/
 │   ├── app.js                # Express app + routes
 │   ├── swagger.js            # Documentation OpenAPI 3.0
 │   ├── config/
-│   │   └── db.js             # Pool MySQL + migrations idempotentes
+│   │   ├── db.js             # Pool MySQL (nova) + migrations idempotentes
+│   │   └── db_telemetry.js   # Pool MySQL (nova_telemetry)
 │   ├── controllers/
 │   │   ├── auth.controller.js
 │   │   ├── utilisateurs.controller.js
 │   │   ├── alertes.controller.js
-│   │   └── stock.controller.js
+│   │   ├── stock.controller.js
+│   │   └── telemetry.controller.js   # Réception + normalisation données ESP32
 │   ├── routes/
 │   │   ├── auth.routes.js
 │   │   ├── utilisateurs.routes.js
@@ -159,14 +179,17 @@ Nova---406-main/
 │   │   ├── stock.routes.js
 │   │   ├── interventions.routes.js
 │   │   ├── comptesRendus.routes.js
-│   │   └── notifications.routes.js
+│   │   ├── notifications.routes.js
+│   │   └── telemetry.routes.js       # Routes IoT ESP32
 │   ├── middlewares/
 │   │   ├── errorHandler.js
-│   │   └── upload.js
+│   │   ├── upload.js
+│   │   └── apiKeyAuth.js             # Authentification par API key (IoT)
 │   ├── utils/
 │   │   └── notif.js          # createNotif() — utilitaire centralisé notifications
 │   ├── sql/
-│   │   └── init.sql          # Schéma complet (sans alertes_internes)
+│   │   ├── init.sql          # Schéma BDD principale (nova)
+│   │   └── init_telemetry.sql# Schéma BDD IoT (nova_telemetry)
 │   └── uploads/              # Fichiers uploadés
 ├── nova-react/               # Frontend React
 │   ├── Dockerfile
@@ -184,13 +207,13 @@ Nova---406-main/
 │   │   │   ├── ConfirmModal.jsx
 │   │   │   └── NotificationsDropdown.jsx
 │   │   ├── pages/
-│   │   │   ├── admin/        # 10 pages (dont AlertesInternes)
+│   │   │   ├── admin/        # 10 pages (dont IoTDashboard, AlertesInternes)
 │   │   │   ├── tech/         # 7 pages (dont AlertesInternes)
 │   │   │   ├── data/         # 5 pages (dont AlertesInternes)
 │   │   │   └── public/       # 4 pages
 │   │   ├── utils/
 │   │   │   └── helpers.js    # Fonctions utilitaires
-│   │   ├── css/              # Styles par module
+│   │   ├── css/              # Styles par module (dont iot-dashboard.css)
 │   │   ├── assets/           # Images
 │   │   └── test/             # Tests unitaires
 │   │       ├── setup.js
@@ -206,7 +229,6 @@ Nova---406-main/
 | Méthode | Route       | Description          |
 |---------|-------------|----------------------|
 | POST    | /api/login  | Connexion utilisateur|
-| POST    | /api/logout | Déconnexion          |
 
 ### Utilisateurs
 | Méthode | Route                            | Description              |
@@ -225,7 +247,7 @@ Nova---406-main/
 | PATCH   | /api/alertes/:id/assign        | Assigner technicien              |
 | PATCH   | /api/alertes/:id/statut        | Changer statut                   |
 | DELETE  | /api/alertes/:id               | Supprimer alerte                 |
-| GET     | /api/alertes/historique        | Alertes archivées (traitee/annulee)|
+| GET     | /api/alertes/historique        | Alertes archivées                |
 | GET     | /api/alertes/by-creator/:id    | Alertes créées par un utilisateur|
 | GET     | /api/alertes/by-tech/:id       | Alertes assignées à un technicien|
 
@@ -281,6 +303,65 @@ Nova---406-main/
 | POST    | /api/notifications/mark-all-read    | Marquer toutes lues              |
 | PATCH   | /api/notifications/:id/mark-read    | Marquer une notif lue (PATCH)    |
 | DELETE  | /api/notifications/:id              | Supprimer notification           |
+
+### Télémétrie IoT (ESP32)
+| Méthode | Route                               | Auth         | Description                              |
+|---------|-------------------------------------|--------------|------------------------------------------|
+| POST    | /api/telemetry                      | x-api-key    | Réception données ESP32                  |
+| GET     | /api/telemetry/latest               | —            | Dernière mesure d'un device              |
+| GET     | /api/telemetry/history              | —            | Historique (range: 10m, 1h, 24h, 7d)    |
+| GET     | /api/telemetry/devices              | —            | Liste des devices enregistrés            |
+| GET     | /api/telemetry/test                 | —            | Vérification connexion nova_telemetry    |
+
+#### Format JSON envoyé par l'ESP32 (POST /api/telemetry)
+
+```json
+{
+  "device": {
+    "id": "esp32-harvester-1",
+    "firmware": "1.0.0"
+  },
+  "timestamp_ms": 1740393600000,
+  "supercap": {
+    "voltage": 1.85,
+    "energy_j": 17.1
+  },
+  "battery": {
+    "voltage": 3.92,
+    "current_a": 0.035,
+    "direction": "discharge"
+  },
+  "system": {
+    "led_on": true,
+    "status": "OK"
+  }
+}
+```
+
+Header requis : `x-api-key: <TELEMETRY_API_KEY>` (désactivé si vide en dev)
+
+#### Réponse normalisée de l'API
+
+```json
+{
+  "deviceId": "esp32-harvester-1",
+  "receivedAt": "2026-02-24T10:00:00.000Z",
+  "timestamp": 1740393600000,
+  "supercap": {
+    "voltage": 1.85,
+    "energy_j": 17.1
+  },
+  "battery": {
+    "voltage": 3.92,
+    "current_a": 0.035,
+    "direction": "discharge"
+  },
+  "system": {
+    "led_on": true,
+    "status": "OK"
+  }
+}
+```
 
 Documentation interactive complète : http://localhost:3000/api-docs
 

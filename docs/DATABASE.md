@@ -1,6 +1,14 @@
 # Modèle de base de données NOVA
 
-## Diagramme relationnel
+Le projet utilise **deux bases de données MySQL 8 distinctes** :
+- `nova` — base principale (gestion de la plateforme)
+- `nova_telemetry` — base IoT (données ESP32)
+
+---
+
+## Base principale : `nova`
+
+### Diagramme relationnel
 
 ```
 utilisateurs (1) ──── (N) alertes             (via technicien_id, cree_par, traite_par)
@@ -11,11 +19,11 @@ utilisateurs (1) ──── (N) comptes_rendus      (via created_by)
 utilisateurs (1) ──── (N) notifications       (via user_id, NULL = broadcast)
 ```
 
-## Tables
+### Tables
 
 ---
 
-### utilisateurs
+#### utilisateurs
 
 | Colonne            | Type                                          | Description                        |
 |--------------------|-----------------------------------------------|------------------------------------|
@@ -32,7 +40,7 @@ utilisateurs (1) ──── (N) notifications       (via user_id, NULL = broad
 
 ---
 
-### alertes (alertes publiques — citoyen / entreprise)
+#### alertes (alertes publiques — citoyen / entreprise)
 
 | Colonne          | Type                                               | Description                              |
 |------------------|----------------------------------------------------|------------------------------------------|
@@ -44,7 +52,7 @@ utilisateurs (1) ──── (N) notifications       (via user_id, NULL = broad
 | email            | VARCHAR(255) NULL                                  | Email de contact                         |
 | unite_id         | INT NULL                                           | Unité IoT concernée                      |
 | capteur_id       | INT NULL                                           | Capteur concerné                         |
-| type_alerte      | VARCHAR(50) NULL                                   | Label : "Panne ou dysfonctionnement", "Proposition d'amélioration", "Autre" |
+| type_alerte      | VARCHAR(50) NULL                                   | "Panne ou dysfonctionnement", "Proposition d'amélioration", "Autre" |
 | priorite         | ENUM('basse','moyenne','haute') DEFAULT 'moyenne'  | Calculé automatiquement depuis type_alerte |
 | description      | TEXT                                               | Détail de l'alerte                       |
 | statut           | ENUM('nouveau','en_cours','resolue','traitee','annulee') DEFAULT 'nouveau' | Cycle de vie |
@@ -59,13 +67,13 @@ utilisateurs (1) ──── (N) notifications       (via user_id, NULL = broad
 - `Proposition d'amélioration` → `moyenne`
 - `Autre` → `basse`
 
-**Cycle de vie** : `nouveau` → `en_cours` → `traitee` ou `resolue` → archivage (statut `traitee` ou `annulee`).
+**Cycle de vie** : `nouveau` → `en_cours` → `traitee` ou `resolue` → archivage.
 
 ---
 
-### alertes_historique (archive des alertes résolues)
+#### alertes_historique (archive des alertes résolues)
 
-Structure identique à `alertes` avec les champs supplémentaires :
+Structure identique à `alertes` avec le champ supplémentaire :
 
 | Colonne         | Type          | Description                          |
 |-----------------|---------------|--------------------------------------|
@@ -76,7 +84,7 @@ Structure identique à `alertes` avec les champs supplémentaires :
 
 ---
 
-### alertes_internes (alertes internes entre employés)
+#### alertes_internes (alertes internes entre employés)
 
 Table dédiée créée **manuellement** (pas via migration automatique, voir section Migrations).
 
@@ -115,7 +123,7 @@ CREATE TABLE IF NOT EXISTS alertes_internes (
 
 ---
 
-### messages
+#### messages
 
 | Colonne         | Type                                | Description                   |
 |-----------------|-------------------------------------|-------------------------------|
@@ -129,7 +137,7 @@ CREATE TABLE IF NOT EXISTS alertes_internes (
 
 ---
 
-### stock
+#### stock
 
 | Colonne       | Type          | Description                         |
 |---------------|---------------|-------------------------------------|
@@ -146,7 +154,7 @@ CREATE TABLE IF NOT EXISTS alertes_internes (
 
 ---
 
-### interventions
+#### interventions
 
 | Colonne        | Type                                               | Description                          |
 |----------------|----------------------------------------------------|--------------------------------------|
@@ -162,7 +170,7 @@ CREATE TABLE IF NOT EXISTS alertes_internes (
 
 ---
 
-### comptes_rendus
+#### comptes_rendus
 
 | Colonne     | Type                               | Description              |
 |-------------|------------------------------------|--------------------------|
@@ -176,7 +184,7 @@ CREATE TABLE IF NOT EXISTS alertes_internes (
 
 ---
 
-### notifications
+#### notifications
 
 | Colonne    | Type                   | Description                                             |
 |------------|------------------------|---------------------------------------------------------|
@@ -206,7 +214,7 @@ donc toute notification avec `user_id = NULL` est visible par admin, technicien 
 
 ---
 
-### releves_capteurs (historique IoT)
+#### releves_capteurs (historique IoT — table legacy)
 
 | Colonne     | Type            | Description                             |
 |-------------|-----------------|-----------------------------------------|
@@ -217,11 +225,107 @@ donc toute notification avec `user_id = NULL` est visible par admin, technicien 
 | valeur      | DECIMAL(10,2)   | Valeur mesurée                          |
 | timestamp   | TIMESTAMP       | Horodatage de la mesure                 |
 
-**Index** : `(capteur_id, timestamp)` et `(type_mesure, timestamp)` pour les requêtes d'historique.
+**Index** : `(capteur_id, timestamp)` et `(type_mesure, timestamp)`.
 
 ---
 
-## Migrations
+## Base IoT : `nova_telemetry`
+
+Base de données dédiée aux données de télémétrie reçues des modules ESP32.
+Fichier de création : `nova_back/sql/init_telemetry.sql`
+
+### Diagramme relationnel
+
+```
+devices   (1) ──── (N) mesures     (via device_id)
+mesures   (1) ──── (1) supercap    (via mesure_id FK CASCADE)
+mesures   (1) ──── (1) batterie    (via mesure_id FK CASCADE)
+mesures   (1) ──── (1) systeme     (via mesure_id FK CASCADE)
+```
+
+### Tables
+
+---
+
+#### devices (registre des ESP32)
+
+| Colonne         | Type         | Description                          |
+|-----------------|--------------|--------------------------------------|
+| id              | INT PK AUTO  | Identifiant interne                  |
+| device_id       | VARCHAR(100) UNIQUE NOT NULL | ex: "esp32-harvester-1" |
+| firmware        | VARCHAR(50) NULL | Version firmware ESP32            |
+| created_at      | TIMESTAMP DEFAULT NOW | Première vue                 |
+| last_seen       | TIMESTAMP ON UPDATE NOW | Dernière mise à jour        |
+
+> Mis à jour par upsert à chaque réception de données (`ON DUPLICATE KEY UPDATE firmware`).
+
+---
+
+#### mesures (enregistrement parent — une ligne = un message ESP32)
+
+| Colonne      | Type         | Description                                        |
+|--------------|--------------|----------------------------------------------------|
+| id           | BIGINT PK AUTO | Identifiant                                      |
+| device_id    | VARCHAR(100) NOT NULL | Identifiant du device                     |
+| timestamp_ms | BIGINT NOT NULL | Timestamp du device (millisecondes ou secondes) |
+| created_at   | TIMESTAMP DEFAULT NOW | Date de réception serveur              |
+
+**Index** : `(device_id, timestamp_ms)`, `(device_id, created_at)`, `(created_at)`
+
+---
+
+#### supercap (données supercondensateur)
+
+| Colonne    | Type         | Description                          |
+|------------|--------------|--------------------------------------|
+| id         | BIGINT PK AUTO | Identifiant                        |
+| mesure_id  | BIGINT FK → mesures(id) CASCADE | Parent         |
+| tension_V  | DECIMAL(6,4) NULL | Tension supercap (V)           |
+| energie_J  | DECIMAL(10,4) NULL | Énergie stockée (Joules)       |
+
+---
+
+#### batterie (état de la batterie)
+
+| Colonne   | Type         | Description                          |
+|-----------|--------------|--------------------------------------|
+| id        | BIGINT PK AUTO | Identifiant                        |
+| mesure_id | BIGINT FK → mesures(id) CASCADE | Parent         |
+| tension_V | DECIMAL(6,4) NULL | Tension batterie (V)           |
+| courant_A | DECIMAL(8,4) NULL | Courant batterie (A)            |
+| etat      | VARCHAR(20) NULL | Direction : "charge" / "discharge" |
+
+---
+
+#### systeme (état du système ESP32)
+
+| Colonne   | Type         | Description                          |
+|-----------|--------------|--------------------------------------|
+| id        | BIGINT PK AUTO | Identifiant                        |
+| mesure_id | BIGINT FK → mesures(id) CASCADE | Parent         |
+| led_on    | TINYINT(1) NULL | État LED (1 = allumée)            |
+| status    | VARCHAR(50) NULL | Statut système (ex: "OK")        |
+
+### Payload JSON ESP32 → Mapping BDD
+
+```
+Payload reçu                    → Table cible
+─────────────────────────────────────────────
+device.id                       → devices.device_id
+device.firmware                 → devices.firmware
+timestamp_ms                    → mesures.timestamp_ms
+supercap.voltage                → supercap.tension_V
+supercap.energy_j               → supercap.energie_J
+battery.voltage                 → batterie.tension_V
+battery.current_a               → batterie.courant_A
+battery.direction               → batterie.etat
+system.led_on                   → systeme.led_on
+system.status                   → systeme.status
+```
+
+---
+
+## Migrations (base nova)
 
 Le fichier `nova_back/config/db.js` exécute des migrations **idempotentes** au démarrage
 (les erreurs `ER_DUP_FIELDNAME` et `ER_TABLE_EXISTS_ERROR` sont ignorées silencieusement).

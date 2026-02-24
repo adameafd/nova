@@ -8,7 +8,7 @@
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐    │
 │  │  Admin   │  │  Tech    │  │  Data    │  │  Public          │    │
 │  │ 10 pages │  │  7 pages │  │  5 pages │  │  Home/About/     │    │
-│  │          │  │          │  │          │  │  Contact/Login   │    │
+│  │ +IoT DB  │  │          │  │          │  │  Contact/Login   │    │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────────┬─────────┘   │
 │       └─────────────┴─────────────┴─────────────────┘             │
 │                          │ HTTP / WebSocket                         │
@@ -20,7 +20,8 @@
 │                                                                      │
 │  ┌──────────┐  ┌────────────┐  ┌────────────────┐  ┌─────────────┐  │
 │  │ REST API │  │ Socket.io  │  │  Middlewares   │  │   Multer    │  │
-│  │          │  │ (real-time)│  │ (CORS, errors) │  │  (uploads)  │  │
+│  │          │  │ (real-time)│  │ CORS / errors  │  │  (uploads)  │  │
+│  │          │  │            │  │ apiKeyAuth     │  │             │  │
 │  └────┬─────┘  └─────┬──────┘  └────────────────┘  └─────────────┘  │
 │       │              │                                               │
 │       └──────┬────────┘                                              │
@@ -31,21 +32,28 @@
 │    └─────────┬─────────┘                                            │
 └──────────────┼───────────────────────────────────────────────────────┘
                │ SQL
-               ▼
-┌──────────────────────────┐     ┌──────────────────────────────────┐
-│   MySQL 8 (BDD)          │     │   MQTT Broker (Mosquitto)        │
-│                          │     │   (IoT sensor data ingestion)    │
-│  - utilisateurs          │     │                                  │
-│  - alertes               │◄────│   Capteurs → MQTT → Backend      │
-│  - alertes_historique    │     │   → releves_capteurs (BDD)       │
-│  - alertes_internes      │     │                                  │
-│  - messages              │     └──────────────────────────────────┘
-│  - stock                 │
-│  - interventions         │
-│  - comptes_rendus        │
-│  - notifications         │
-│  - releves_capteurs      │
-└──────────────────────────┘
+    ┌──────────┴────────────────┐
+    │                           │
+    ▼                           ▼
+┌──────────────────────────┐  ┌──────────────────────────────────┐
+│   MySQL 8 — nova (BDD)   │  │   MySQL 8 — nova_telemetry (BDD) │
+│                          │  │                                  │
+│  - utilisateurs          │  │  - devices                       │
+│  - alertes               │  │  - mesures                       │
+│  - alertes_historique    │  │  - supercap                      │
+│  - alertes_internes      │  │  - batterie                      │
+│  - messages              │  │  - systeme                       │
+│  - stock                 │  │                                  │
+│  - interventions         │  │   ▲                              │
+│  - comptes_rendus        │  │   │ POST /api/telemetry          │
+│  - notifications         │  │   │ (x-api-key)                  │
+│  - releves_capteurs      │  │                                  │
+└──────────────────────────┘  └──────┬───────────────────────────┘
+                                     │
+                              ┌──────┴──────┐
+                              │  ESP32      │
+                              │  IoT Node   │
+                              └─────────────┘
 ```
 
 ## Flux de données
@@ -75,12 +83,23 @@ User envoie message → POST /api/messages
                     → badge non-lu mis à jour (polling /summary)
 ```
 
-### 4. Capteurs IoT (architecture prévue)
+### 4. Télémétrie IoT — ESP32 (implémenté)
 ```
-Capteur physique → MQTT publish (topic: nova/sensors/{id})
-                 → Backend subscribe MQTT
-                 → INSERT INTO releves_capteurs
-                 → Dashboard affiche graphiques temps réel
+ESP32 collecte données  → POST /api/telemetry (header: x-api-key)
+                        → middleware apiKeyAuth valide la clé
+                        → validation du payload JSON
+                        → transaction SQL :
+                            INSERT devices (upsert)
+                            INSERT mesures   (parent)
+                            INSERT supercap  (tension_V, energie_J)
+                            INSERT batterie  (tension_V, courant_A, etat)
+                            INSERT systeme   (led_on, status)
+                        → Socket.io emit "telemetry_update" (payload normalisé)
+                        → Dashboard IoT admin mis à jour en temps réel
+
+Frontend polling/socket → GET /api/telemetry/latest?deviceId=...
+                        → GET /api/telemetry/history?deviceId=...&range=10m|1h|24h|7d
+                        → GET /api/telemetry/devices
 ```
 
 ### 5. Gestion de stock
@@ -129,6 +148,7 @@ Polling toutes les 15s depuis les pages Accueil de chaque rôle
 | Unité de contrôle    |   x   |     x      |      |
 | Comptes rendus       |   x   |            |  x   |
 | Notifications        |   x   |     x      |  x   |
+| Dashboard IoT        |   x   |            |      |
 
 ### Règles fines — Alertes internes
 
