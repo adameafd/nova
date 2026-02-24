@@ -2,100 +2,188 @@ import { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmModal, { showToast } from '../../components/ConfirmModal';
-import { getPriorityLabel, getStatutLabel, sortAlertsByPriority } from '../../utils/helpers';
+import { getStatutLabel, sortAlertsByPriority } from '../../utils/helpers';
 import '../../css/alerts.css';
 
+// ── Helpers ────────────────────────────────────────────────────────────
+function getPrioLabel(p) {
+  if (p === 'haute')   return 'Haute';
+  if (p === 'moyenne') return 'Moyenne';
+  return 'Basse';
+}
+
+// Dérive la priorité depuis categorie si priorite absent en DB
+function getPrioEffective(a) {
+  if (a.priorite === 'haute' || a.priorite === 'moyenne' || a.priorite === 'basse') return a.priorite;
+  const c = a.categorie || '';
+  if (c === 'Panne ou dysfonctionnement') return 'haute';
+  if (c === "Proposition d'amélioration") return 'moyenne';
+  return 'basse';
+}
+
+// Badge CSS selon la categorie
+function getCategorieClass(categorie) {
+  const c = categorie || '';
+  if (c === 'Panne ou dysfonctionnement') return 'type-panne';
+  if (c === "Proposition d'amélioration") return 'type-proposition';
+  return 'type-autre';
+}
+
+// Label affiché (fallback si null)
+function getCategorieLabel(categorie) {
+  return categorie || 'Autre';
+}
+
+function cap(str) {
+  if (!str) return '-';
+  const s = String(str);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Statuts qui basculent dans l'onglet Historique (commun admin + tech)
+const STATUTS_ARCHIVES = ['traitee', 'annulee', 'resolue'];
+
+const STATUT_OPTIONS = [
+  { value: 'en_cours', label: 'En cours' },
+  { value: 'traitee',  label: 'Traitée'  },
+  { value: 'annulee',  label: 'Annulée'  },
+];
+
+// ── Composant ──────────────────────────────────────────────────────────
 export default function AdminAlerts() {
   const { API_BASE } = useAuth();
   const { globalSearch } = useOutletContext() || {};
-  const [alerts, setAlerts] = useState([]);
-  const [technicians, setTechnicians] = useState([]);
-  const [activeTab, setActiveTab] = useState('citoyen');
-  const [filters, setFilters] = useState({ priority: '', status: '', technician: '' });
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [viewAlert, setViewAlert] = useState(null);
-  const [editAlert, setEditAlert] = useState(null);
 
+  // On charge TOUT d'un coup → on filtre localement par onglet
+  const [allAlerts,    setAllAlerts]    = useState([]);
+  const [technicians,  setTechnicians]  = useState([]);
+  const [mode,         setMode]         = useState('en_cours'); // 'en_cours' | 'historique'
+  const [filters,      setFilters]      = useState({ type: '', technician: '' });
+  const [search,       setSearch]       = useState('');
+  const [loading,      setLoading]      = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [savingId,     setSavingId]     = useState(null);
+  const [viewAlert,    setViewAlert]    = useState(null);
+
+  // ── Chargement de toutes les alertes ──────────────────────────────
   const fetchAlerts = useCallback(() => {
     setLoading(true);
-    const url = activeTab === 'historique'
-      ? `${API_BASE}/alertes/historique`
-      : `${API_BASE}/alertes?source_type=${activeTab}`;
-    fetch(url)
-      .then(r => r.json())
-      .then(data => setAlerts(Array.isArray(data) ? data : []))
-      .catch(() => setAlerts([]))
+    fetch(`${API_BASE}/alertes`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(data => setAllAlerts(Array.isArray(data) ? data : []))
+      .catch(err => {
+        console.error('[AdminAlerts] fetch erreur:', err.message);
+        setAllAlerts([]);
+      })
       .finally(() => setLoading(false));
-  }, [API_BASE, activeTab]);
+  }, [API_BASE]);
 
-  useEffect(() => {
-    fetchAlerts();
-  }, [fetchAlerts]);
+  useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
 
+  // ── Chargement techniciens ─────────────────────────────────────────
   useEffect(() => {
     fetch(`${API_BASE}/utilisateurs`)
       .then(r => r.json())
-      .then(data => {
-        const techs = (Array.isArray(data) ? data : []).filter(u =>
-          u.role === 'technicien' || u.role === 'tech' || u.role_id === 2
-        );
-        setTechnicians(techs);
-      })
+      .then(data =>
+        setTechnicians(
+          (Array.isArray(data) ? data : []).filter(u =>
+            u.role === 'technicien' || u.role === 'tech'
+          )
+        )
+      )
       .catch(() => setTechnicians([]));
   }, [API_BASE]);
 
+  // ── Partition par onglet ───────────────────────────────────────────
+  const enCoursAlerts    = allAlerts.filter(a => !STATUTS_ARCHIVES.includes(a.statut));
+  const historiqueAlerts = allAlerts.filter(a =>  STATUTS_ARCHIVES.includes(a.statut));
+  const modeAlerts       = mode === 'historique' ? historiqueAlerts : enCoursAlerts;
+
   const activeSearch = search || globalSearch || '';
 
-  const filtered = sortAlertsByPriority(alerts.filter(a => {
-    if (filters.priority && a.priorite !== filters.priority) return false;
-    if (filters.status && a.statut !== filters.status) return false;
-    if (filters.technician && String(a.technicien_id) !== filters.technician) return false;
-    if (activeSearch) {
-      const s = activeSearch.toLowerCase();
-      const matchName = (a.nom_demandeur || '').toLowerCase().includes(s);
-      const matchEmail = (a.email || '').toLowerCase().includes(s);
-      const matchMsg = (a.description || '').toLowerCase().includes(s);
-      if (!matchName && !matchEmail && !matchMsg) return false;
-    }
-    return true;
-  }));
+  const filtered = sortAlertsByPriority(
+    modeAlerts.filter(a => {
+      if (filters.type       && getCategorieClass(a.categorie) !== filters.type)         return false;
+      if (filters.technician && String(a.technicien_id) !== filters.technician)          return false;
+      if (activeSearch) {
+        const s = activeSearch.toLowerCase();
+        if (
+          !(a.nom_demandeur || '').toLowerCase().includes(s) &&
+          !(a.email         || '').toLowerCase().includes(s) &&
+          !(a.description   || '').toLowerCase().includes(s)
+        ) return false;
+      }
+      return true;
+    })
+  );
 
-  const handleAssign = async (id, technicien_id) => {
+  // ── PATCH technicien ───────────────────────────────────────────────
+  const handleAssign = async (e, id, technicien_id) => {
+    e.stopPropagation();
+    setSavingId(id);
     try {
-      await fetch(`${API_BASE}/alertes/${id}/assign`, {
+      const res = await fetch(`${API_BASE}/alertes/${id}/assign`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ technicien_id: technicien_id || null }),
       });
-      setAlerts(prev => prev.map(a =>
-        a.id === id ? { ...a, technicien_id: technicien_id ? Number(technicien_id) : null, technicien_nom: technicians.find(t => t.id === Number(technicien_id))?.nom || null } : a
-      ));
-    } catch { /* ignore */ }
+      if (!res.ok) throw new Error();
+      const techNom = technicians.find(t => t.id === Number(technicien_id))?.nom || null;
+      setAllAlerts(prev =>
+        prev.map(a =>
+          a.id === id
+            ? { ...a, technicien_id: technicien_id ? Number(technicien_id) : null, technicien_nom: techNom }
+            : a
+        )
+      );
+      showToast('Technicien mis à jour');
+    } catch {
+      showToast('Erreur lors de la mise à jour', 'error');
+    } finally {
+      setSavingId(null);
+    }
   };
 
-  const handleStatus = async (id, statut) => {
+  // ── PATCH statut — traitée/annulée → glisse dans Historique ────────
+  const handleStatus = async (e, id, statut) => {
+    e.stopPropagation();
+    setSavingId(id);
     try {
-      await fetch(`${API_BASE}/alertes/${id}/statut`, {
+      const res = await fetch(`${API_BASE}/alertes/${id}/statut`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ statut }),
       });
-      if (statut === 'resolue') {
-        setAlerts(prev => prev.filter(a => a.id !== id));
-      } else {
-        setAlerts(prev => prev.map(a => a.id === id ? { ...a, statut } : a));
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.error || `HTTP ${res.status}`);
       }
-    } catch { /* ignore */ }
+      // Met à jour localement : la partition en_cours / historique se recalcule automatiquement
+      setAllAlerts(prev => prev.map(a => a.id === id ? { ...a, statut } : a));
+      if (STATUTS_ARCHIVES.includes(statut)) {
+        showToast("Alerte déplacée vers l'Historique");
+      } else {
+        showToast('Statut mis à jour');
+      }
+    } catch (err) {
+      console.error('[AdminAlerts] handleStatus erreur:', err.message);
+      showToast(`Erreur : ${err.message}`, 'error');
+    } finally {
+      setSavingId(null);
+    }
   };
 
+  // ── Suppression ────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await fetch(`${API_BASE}/alertes/${deleteTarget}`, { method: 'DELETE' });
-      setAlerts(prev => prev.filter(x => x.id !== deleteTarget));
-      showToast('Supprimé');
+      const res = await fetch(`${API_BASE}/alertes/${deleteTarget}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setAllAlerts(prev => prev.filter(x => x.id !== deleteTarget));
+      showToast('Alerte supprimée');
     } catch {
       showToast('Erreur lors de la suppression', 'error');
     } finally {
@@ -103,62 +191,32 @@ export default function AdminAlerts() {
     }
   };
 
-  const openEditModal = (a) => {
-    setEditAlert({ ...a, technicien_id: a.technicien_id || '', statut: a.statut || 'nouveau' });
-  };
-
-  const handleEditSave = async () => {
-    if (!editAlert) return;
-    try {
-      await fetch(`${API_BASE}/alertes/${editAlert.id}/assign`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ technicien_id: editAlert.technicien_id || null }),
-      });
-      const newStatut = editAlert.statut;
-      await fetch(`${API_BASE}/alertes/${editAlert.id}/statut`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statut: newStatut }),
-      });
-      if (newStatut === 'resolue') {
-        setAlerts(prev => prev.filter(a => a.id !== editAlert.id));
-      } else {
-        setAlerts(prev => prev.map(a =>
-          a.id === editAlert.id
-            ? { ...a, technicien_id: editAlert.technicien_id ? Number(editAlert.technicien_id) : null, technicien_nom: technicians.find(t => t.id === Number(editAlert.technicien_id))?.nom || null, statut: newStatut }
-            : a
-        ));
-      }
-      showToast('Alerte modifiée');
-      setEditAlert(null);
-    } catch {
-      showToast('Erreur lors de la modification', 'error');
-    }
-  };
-
   const resetFilters = () => {
-    setFilters({ priority: '', status: '', technician: '' });
+    setFilters({ type: '', technician: '' });
     setSearch('');
   };
 
-  // Parse old-format descriptions that have email/sujet stuffed inside
   const parseAlerte = (a) => {
     if (a.email) return { email: a.email, message: a.description || '' };
-    const desc = a.description || '';
-    let email = '';
-    let message = desc;
+    const desc       = a.description || '';
     const emailMatch = desc.match(/Email\s*:\s*(.+)/i);
-    if (emailMatch) email = emailMatch[1].trim();
-    const msgMatch = desc.match(/Message\s*:\s*\n?([\s\S]*)/i);
-    if (msgMatch) message = msgMatch[1].trim();
-    return { email: email || '', message: message || desc };
+    const msgMatch   = desc.match(/Message\s*:\s*\n?([\s\S]*)/i);
+    return {
+      email:   emailMatch ? emailMatch[1].trim() : '',
+      message: msgMatch   ? msgMatch[1].trim()   : desc,
+    };
   };
 
-  const isHistorique = activeTab === 'historique';
+  const currentStatut = (a) =>
+    STATUT_OPTIONS.some(o => o.value === a.statut) ? a.statut : 'en_cours';
 
+  const isHistorique = mode === 'historique';
+
+  // ── Rendu ──────────────────────────────────────────────────────────
   return (
     <div className="alert-container">
+
+      {/* En-tête */}
       <div className="alert-header">
         <div className="alert-title-wrap">
           <h1 className="alert-title">Alertes</h1>
@@ -166,18 +224,31 @@ export default function AdminAlerts() {
         </div>
       </div>
 
-      <div className="alertes-switch">
-        <button className={`switch-btn${activeTab === 'citoyen' ? ' active' : ''}`} onClick={() => setActiveTab('citoyen')}>
-          Citoyen
+      {/* ── Onglets (même style que Tech) ── */}
+      <div className="mode-tabs">
+        <button
+          className={`mode-tab${mode === 'en_cours' ? ' active' : ''}`}
+          onClick={() => setMode('en_cours')}
+        >
+          <i className="fa-solid fa-clock-rotate-left"></i>
+          En cours
+          {enCoursAlerts.length > 0 && (
+            <span className="mode-tab-count">{enCoursAlerts.length}</span>
+          )}
         </button>
-        <button className={`switch-btn${activeTab === 'entreprise' ? ' active' : ''}`} onClick={() => setActiveTab('entreprise')}>
-          Entreprise
-        </button>
-        <button className={`switch-btn${activeTab === 'historique' ? ' active' : ''}`} onClick={() => setActiveTab('historique')}>
+        <button
+          className={`mode-tab${mode === 'historique' ? ' active' : ''}`}
+          onClick={() => setMode('historique')}
+        >
+          <i className="fa-solid fa-check-circle"></i>
           Historique
+          {historiqueAlerts.length > 0 && (
+            <span className="mode-tab-count resolved">{historiqueAlerts.length}</span>
+          )}
         </button>
       </div>
 
+      {/* Filtres */}
       <div className="alert-filters">
         <div className="filter-group">
           <label>Recherche</label>
@@ -189,112 +260,252 @@ export default function AdminAlerts() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
+
         <div className="filter-group">
-          <label>Priorité</label>
-          <select value={filters.priority} onChange={e => setFilters({ ...filters, priority: e.target.value })}>
-            <option value="">Toutes</option>
-            <option value="haute">Haute (Panne)</option>
-            <option value="moyenne">Moyenne (Autre)</option>
-            <option value="basse">Basse (Proposition)</option>
-          </select>
-        </div>
-        <div className="filter-group">
-          <label>Statut</label>
-          <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
+          <label>Type</label>
+          <select
+            value={filters.type}
+            onChange={e => setFilters({ ...filters, type: e.target.value })}
+          >
             <option value="">Tous</option>
-            <option value="nouveau">Nouveau</option>
-            <option value="en_cours">En cours</option>
-            {isHistorique && <option value="resolue">Résolue</option>}
+            <option value="type-panne">Panne ou dysfonctionnement</option>
+            <option value="type-proposition">Proposition d'amélioration</option>
+            <option value="type-autre">Autre</option>
           </select>
         </div>
+
         {!isHistorique && (
           <div className="filter-group">
             <label>Technicien</label>
-            <select value={filters.technician} onChange={e => setFilters({ ...filters, technician: e.target.value })}>
+            <select
+              value={filters.technician}
+              onChange={e => setFilters({ ...filters, technician: e.target.value })}
+            >
               <option value="">Tous</option>
               {technicians.map(t => (
-                <option key={t.id} value={t.id}>{t.nom}</option>
+                <option key={t.id} value={t.id}>{cap(t.nom)}</option>
               ))}
             </select>
           </div>
         )}
+
         <div className="filter-group">
           <label>&nbsp;</label>
           <button className="btn-reset-filter" onClick={resetFilters}>Réinitialiser</button>
         </div>
       </div>
 
+      {/* Tableau */}
       <div className="table-wrapper">
         <table className="alert-table">
           <thead>
             <tr>
-              <th>Nom</th>
+              <th>Demandeur</th>
               <th>Email</th>
               <th>Message</th>
               <th>Priorité</th>
               <th>Technicien</th>
               <th>Statut</th>
-              <th>Date</th>
-              <th>Actions</th>
+              <th>{isHistorique ? 'Date résolution' : 'Date'}</th>
+              {!isHistorique && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="8"><div className="loading-container"><div className="spinner"></div><span className="loading-text">Chargement...</span></div></td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan="8" style={{ textAlign: 'center', padding: 30, color: 'var(--muted)' }}>Aucune alerte trouvée</td></tr>
-            ) : filtered.map(a => {
-              const parsed = parseAlerte(a);
-              return (
-              <tr key={a.id}>
-                <td>{a.nom_demandeur || '-'}</td>
-                <td>{parsed.email || '-'}</td>
-                <td className="message-cell" title={parsed.message}>{parsed.message || '-'}</td>
-                <td><span className={`badge ${a.priorite || ''}`}>{getPriorityLabel(a.priorite)}</span></td>
-                <td>{a.technicien_nom || <span className="text-muted">Non assigné</span>}</td>
-                <td><span className={`badge statut-${a.statut || ''}`}>{getStatutLabel(a.statut)}</span></td>
-                <td>{a.date_creation ? new Date(a.date_creation).toLocaleString('fr-FR') : '-'}</td>
-                <td>
-                  <div className="action-btns">
-                    <button className="btn-action-sm view" onClick={() => setViewAlert(a)} title="Voir">
-                      <i className="fa-solid fa-eye"></i>
-                    </button>
-                    {!isHistorique && (
-                      <button className="btn-action-sm edit" onClick={() => openEditModal(a)} title="Modifier">
-                        <i className="fa-solid fa-pen"></i>
-                      </button>
-                    )}
-                    <button className="btn-action-sm delete" onClick={() => setDeleteTarget(a.id)} title="Supprimer">
-                      <i className="fa-solid fa-trash"></i>
-                    </button>
+              <tr>
+                <td colSpan={isHistorique ? 7 : 8}>
+                  <div className="loading-container">
+                    <div className="spinner" />
+                    <span className="loading-text">Chargement…</span>
                   </div>
                 </td>
               </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={isHistorique ? 7 : 8}
+                  style={{ textAlign: 'center', padding: 30, color: 'var(--muted)' }}
+                >
+                  {isHistorique ? "Aucune alerte dans l'historique" : 'Aucune alerte en cours'}
+                </td>
+              </tr>
+            ) : filtered.map(a => {
+              const parsed   = parseAlerte(a);
+              const isSaving = savingId === a.id;
+              const dateVal  = isHistorique
+                ? (a.date_mise_a_jour || a.date_creation)
+                : a.date_creation;
+
+              return (
+                <tr
+                  key={a.id}
+                  className={`row-clickable${isSaving ? ' row-saving' : ''}`}
+                  onClick={() => setViewAlert(a)}
+                >
+                  {/* Demandeur */}
+                  <td>{cap(a.nom_demandeur)}</td>
+
+                  {/* Email */}
+                  <td>{parsed.email || '-'}</td>
+
+                  {/* Message */}
+                  <td className="message-cell" title={parsed.message}>
+                    {parsed.message || '-'}
+                  </td>
+
+                  {/* Priorité */}
+                  <td>
+                    <span className={`badge prio-${getPrioEffective(a)}`}>
+                      {getPrioLabel(getPrioEffective(a))}
+                    </span>
+                  </td>
+
+                  {/* Technicien — select (admin only, désactivé en historique) */}
+                  <td onClick={e => e.stopPropagation()}>
+                    {isHistorique ? (
+                      <span className="text-muted-sm">{cap(a.technicien_nom) || '—'}</span>
+                    ) : (
+                      <select
+                        className="inline-select tech-select"
+                        value={a.technicien_id || ''}
+                        disabled={isSaving}
+                        onChange={e => handleAssign(e, a.id, e.target.value)}
+                      >
+                        <option value="">— Aucun —</option>
+                        {technicians.map(t => (
+                          <option key={t.id} value={t.id}>{cap(t.nom)}</option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+
+                  {/* Statut — select (admin only, badge statique en historique) */}
+                  <td onClick={e => e.stopPropagation()}>
+                    {isHistorique ? (
+                      <span className={`badge statut-${a.statut || ''}`}>
+                        {cap(getStatutLabel(a.statut))}
+                      </span>
+                    ) : (
+                      <select
+                        className="inline-select status-select"
+                        value={currentStatut(a)}
+                        disabled={isSaving}
+                        onChange={e => handleStatus(e, a.id, e.target.value)}
+                      >
+                        {STATUT_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+
+                  {/* Date */}
+                  <td className="date-cell">
+                    {dateVal
+                      ? new Date(dateVal).toLocaleString('fr-FR', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit',
+                        })
+                      : '-'}
+                  </td>
+
+                  {/* Actions (admin only, masquées en historique) */}
+                  {!isHistorique && (
+                    <td onClick={e => e.stopPropagation()}>
+                      <div className="action-btns">
+                        <button
+                          className="btn-action-sm delete"
+                          onClick={() => setDeleteTarget(a.id)}
+                          title="Supprimer"
+                          disabled={isSaving}
+                        >
+                          <i className="fa-solid fa-trash" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
               );
             })}
           </tbody>
         </table>
       </div>
 
-      {/* Modal Voir détail */}
+      {/* ── Modal confirmation suppression ────────────────────────── */}
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Supprimer cette alerte ?"
+        message="Cette alerte sera définitivement supprimée."
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* ── Modal détail alerte ──────────────────────────────────── */}
       {viewAlert && (() => {
-        const parsed = parseAlerte(viewAlert);
+        const parsed    = parseAlerte(viewAlert);
+        const dateResol = viewAlert.date_mise_a_jour || viewAlert.date_creation;
         return (
           <>
-            <div className="modal-overlay active" onClick={() => setViewAlert(null)}></div>
+            <div className="modal-overlay active" onClick={() => setViewAlert(null)} />
             <div className="alert-detail-modal active">
               <div className="modal-header">
-                <h3><i className="fa-solid fa-eye"></i> Détail de l'alerte</h3>
+                <h3><i className="fa-solid fa-circle-info"></i> Détail de l'alerte</h3>
                 <button className="close-modal" onClick={() => setViewAlert(null)}>&times;</button>
               </div>
               <div className="modal-content">
                 <div className="detail-grid">
-                  <div className="detail-row"><span className="detail-label">Nom</span><span>{viewAlert.nom_demandeur || '-'}</span></div>
-                  <div className="detail-row"><span className="detail-label">Email</span><span>{parsed.email || '-'}</span></div>
-                  <div className="detail-row"><span className="detail-label">Priorité</span><span className={`badge ${viewAlert.priorite || ''}`}>{getPriorityLabel(viewAlert.priorite)}</span></div>
-                  <div className="detail-row"><span className="detail-label">Statut</span><span className={`badge statut-${viewAlert.statut || ''}`}>{getStatutLabel(viewAlert.statut)}</span></div>
-                  <div className="detail-row"><span className="detail-label">Technicien</span><span>{viewAlert.technicien_nom || 'Non assigné'}</span></div>
-                  <div className="detail-row"><span className="detail-label">Date</span><span>{viewAlert.date_creation ? new Date(viewAlert.date_creation).toLocaleString('fr-FR') : '-'}</span></div>
+                  <div className="detail-row">
+                    <span className="detail-label">Demandeur</span>
+                    <span>{cap(viewAlert.nom_demandeur) || '-'}</span>
+                  </div>
+                  {viewAlert.source_type === 'entreprise' && viewAlert.nom_entreprise && (
+                    <div className="detail-row">
+                      <span className="detail-label">Entreprise</span>
+                      <span>{viewAlert.nom_entreprise}</span>
+                    </div>
+                  )}
+                  <div className="detail-row">
+                    <span className="detail-label">Email</span>
+                    <span>{parsed.email || '-'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Type</span>
+                    <span className={`badge ${getCategorieClass(viewAlert.categorie)}`}>
+                      {getCategorieLabel(viewAlert.categorie)}
+                    </span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Priorité</span>
+                    <span className={`badge prio-${getPrioEffective(viewAlert)}`}>
+                      {getPrioLabel(getPrioEffective(viewAlert))}
+                    </span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Statut</span>
+                    <span className={`badge statut-${viewAlert.statut || ''}`}>
+                      {cap(getStatutLabel(viewAlert.statut))}
+                    </span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Technicien</span>
+                    <span>{cap(viewAlert.technicien_nom) || '—'}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Reçue le</span>
+                    <span className="date-cell">
+                      {viewAlert.date_creation
+                        ? new Date(viewAlert.date_creation).toLocaleString('fr-FR')
+                        : '-'}
+                    </span>
+                  </div>
+                  {STATUTS_ARCHIVES.includes(viewAlert.statut) && (
+                    <div className="detail-row">
+                      <span className="detail-label">Traitée le</span>
+                      <span className="date-cell">
+                        {dateResol ? new Date(dateResol).toLocaleString('fr-FR') : '-'}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="detail-message">
                   <span className="detail-label">Message</span>
@@ -309,47 +520,6 @@ export default function AdminAlerts() {
         );
       })()}
 
-      {/* Modal Modifier */}
-      {editAlert && (
-        <>
-          <div className="modal-overlay active" onClick={() => setEditAlert(null)}></div>
-          <div className="alert-edit-modal active">
-            <div className="modal-header">
-              <h3><i className="fa-solid fa-pen"></i> Modifier l'alerte</h3>
-              <button className="close-modal" onClick={() => setEditAlert(null)}>&times;</button>
-            </div>
-            <div className="modal-content">
-              <div className="form-group">
-                <label>Technicien</label>
-                <select value={editAlert.technicien_id || ''} onChange={e => setEditAlert({ ...editAlert, technicien_id: e.target.value })}>
-                  <option value="">-- Aucun --</option>
-                  {technicians.map(t => <option key={t.id} value={t.id}>{t.nom}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Statut</label>
-                <select value={editAlert.statut || ''} onChange={e => setEditAlert({ ...editAlert, statut: e.target.value })}>
-                  <option value="nouveau">Nouveau</option>
-                  <option value="en_cours">En cours</option>
-                  <option value="resolue">Résolue</option>
-                </select>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setEditAlert(null)}>Annuler</button>
-              <button className="btn-save" onClick={handleEditSave}>Enregistrer</button>
-            </div>
-          </div>
-        </>
-      )}
-
-      <ConfirmModal
-        open={!!deleteTarget}
-        title="Supprimer cette alerte ?"
-        message="L'alerte sera définitivement supprimée."
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
     </div>
   );
 }

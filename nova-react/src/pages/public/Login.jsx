@@ -29,6 +29,7 @@ export default function Login() {
       if (user.role === 'admin') navigate('/admin');
       else if (user.role === 'tech' || user.role === 'technicien') navigate('/tech');
       else if (user.role === 'data') navigate('/data');
+      else if (user.role === 'entreprise') navigate('/entreprise');
       else setError('Rôle non reconnu !');
     } catch {
       setError('Erreur réseau !');
@@ -51,7 +52,6 @@ export default function Login() {
             <input id="loginEmailPage" type="email" placeholder="abc@gmail.com" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
             <label htmlFor="loginPasswordPage">Mot de passe</label>
             <input id="loginPasswordPage" type="password" placeholder="********" required value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
-            <a href="#" className="forgot" onClick={e => e.preventDefault()}>Mot de passe oublié ?</a>
             <button type="submit" className="btn-login" disabled={loading}>
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>

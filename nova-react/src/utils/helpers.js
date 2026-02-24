@@ -1,17 +1,19 @@
 // ── Synonymes de rôles ──
 const ROLE_SYNONYMS = {
-  tech: ['technicien', 'technician', 'tech'],
+  tech:       ['technicien', 'technician', 'tech'],
   technicien: ['technicien', 'technician', 'tech'],
-  admin: ['administrateur', 'administrator', 'admin'],
-  data: ['équipe data', 'equipe data', 'data analyst', 'data'],
+  admin:      ['administrateur', 'administrator', 'admin'],
+  data:       ['équipe data', 'equipe data', 'data analyst', 'data'],
+  entreprise: ['entreprise', 'company', 'enterprise'],
 };
 
 // Libellés affichés pour chaque rôle
 const ROLE_LABELS = {
-  admin: 'Administrateur',
-  tech: 'Technicien',
+  admin:      'Administrateur',
+  tech:       'Technicien',
   technicien: 'Technicien',
-  data: 'Équipe Data',
+  data:       'Équipe Data',
+  entreprise: 'Entreprise',
 };
 
 /**
@@ -97,9 +99,9 @@ export function tolerantSearch(query, fields = {}) {
  * Labels de priorité pour les alertes
  */
 export const PRIORITY_LABELS = {
-  haute: 'Panne',
-  moyenne: 'Autre',
-  basse: 'Proposition faible',
+  haute:   'Haute',
+  moyenne: 'Moyenne',
+  basse:   'Basse',
 };
 
 export function getPriorityLabel(p) {
@@ -127,8 +129,14 @@ export function sortAlertsByPriority(alerts) {
  * Labels de sujet d'alerte
  */
 export function getSujetLabel(s) {
-  const map = { panne: 'Panne', proposition: 'Proposition', autre: 'Autre' };
-  return map[s] || formatLabel(s) || '-';
+  // Codes courts (données existantes avant migration)
+  const legacyMap = {
+    panne:       'Panne ou dysfonctionnement',
+    proposition: "Proposition d'amélioration",
+    autre:       'Autre',
+  };
+  // Si c'est un code court → label complet; si c'est déjà le label complet → inchangé
+  return legacyMap[s] || s || 'Autre';
 }
 
 /**
@@ -136,12 +144,14 @@ export function getSujetLabel(s) {
  */
 export function getStatutLabel(s) {
   const map = {
-    nouveau: 'Nouveau',
-    en_cours: 'En cours',
-    resolue: 'Résolue',
+    nouveau:    'Nouveau',
+    en_cours:   'En cours',
+    resolue:    'Résolue',
+    traite:     'Traité',
+    traitee:    'Traitée',
     en_attente: 'En attente',
-    annulee: 'Annulée',
-    terminee: 'Terminée',
+    annulee:    'Annulée',
+    terminee:   'Terminée',
   };
   return map[s] || formatLabel(s) || '-';
 }

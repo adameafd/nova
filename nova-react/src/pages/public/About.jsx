@@ -36,7 +36,6 @@ export default function About() {
             { name: 'Adame', role: 'Partie web' },
             { name: 'Mariam', role: 'Partie web' },
             { name: 'Yasmine', role: 'Partie web' },
-            { name: 'Eliam', role: 'Partie web' },
             { name: 'Anass', role: 'Partie maquette' },
             { name: 'Imrane', role: 'Partie maquette' },
           ].map(m => (

@@ -2,10 +2,19 @@
 
 /* ===== Public Page Wrapper ===== */
 .public-page {
-  background: var(--bg-light);
+  background: #0d253a;
   color: var(--blue-dark);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: "Poppins", sans-serif;
+}
+
+/* Zone de contenu — s'étend pour remplir l'espace et coller le footer en bas */
+.public-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ===== Navbar ===== */
@@ -107,6 +116,7 @@
 /* ===== Home Hero Section (full viewport) ===== */
 .hero-section {
   background: linear-gradient(135deg, #0d253a 0%, #1f3b4d 100%);
+  flex: 1;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -577,8 +587,8 @@
   color: #fff;
   text-align: center;
   padding: 25px 10px;
-  margin-top: 80px;
   font-size: 15px;
+  margin-top: 0;
 }
 
 /* ===== Animations ===== */

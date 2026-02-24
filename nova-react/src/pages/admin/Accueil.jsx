@@ -1,8 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, resolvePhotoUrl } from '../../context/AuthContext';
+import { getSocket } from '../../socket';
 import '../../css/accueil.css';
 import '../../css/notifications.css';
+
+// Mapping notif.link → route admin complète
+const LINK_MAP = {
+  messages:        '/admin/messagerie',
+  messagerie:      '/admin/messagerie',
+  stock:           '/admin/stock',
+  'compte-rendu':  '/admin/compte-rendu',
+  alertes:         '/admin/alerts',
+  alerts:          '/admin/alerts',
+  interventions:   '/admin/interventions',
+  dashboard:       '/admin/dashboard',
+};
 
 const TYPE_CONFIG = {
   COMPTE_RENDU: { icon: 'fa-file-lines', color: '#1abc9c', label: 'Compte rendu' },
@@ -31,14 +44,24 @@ export default function AdminAccueil() {
   const currentUserId = Number(user?.id);
 
   const loadNotifications = useCallback(async () => {
-    if (!currentUserId) return;
+    if (!currentUserId) {
+      console.warn('[Notifs-admin] userId invalide, fetch ignoré', currentUserId);
+      return;
+    }
     try {
-      const res = await fetch(`${API_BASE}/notifications/latest?userId=${currentUserId}&limit=10`);
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(Array.isArray(data) ? data : []);
+      const url = `${API_BASE}/notifications/latest?userId=${currentUserId}&limit=10`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('[Notifs-admin] Erreur serveur', res.status, err);
+        return;
       }
-    } catch { /* silent */ }
+      const data = await res.json();
+      console.log('[Notifs-admin] Reçu', data.length, 'notification(s)');
+      setNotifications(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('[Notifs-admin] Erreur fetch:', err.message);
+    }
   }, [API_BASE, currentUserId]);
 
   useEffect(() => {
@@ -49,15 +72,38 @@ export default function AdminAccueil() {
     loadNotifications();
   }, [API_BASE, loadNotifications]);
 
+  // Écoute temps réel des changements de statut via Socket.IO
+  useEffect(() => {
+    const socket = getSocket();
+    const onStatusUpdate = ({ userId, statut }) => {
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, statut_activite: statut } : u
+      ));
+    };
+    socket.on('users:status_update', onStatusUpdate);
+    return () => socket.off('users:status_update', onStatusUpdate);
+  }, []);
+
   // Polling 15s
   useEffect(() => {
     const interval = setInterval(loadNotifications, 15000);
     return () => clearInterval(interval);
   }, [loadNotifications]);
 
-  const online = users.slice(0, 1);
-  const recent = users.slice(1, 3);
-  const offline = users.slice(3, 5);
+  const handleVoir = useCallback(async (notif) => {
+    // Retrait optimiste immédiat — pas de flash même si l'API échoue
+    setNotifications(prev => prev.filter(n => n.id !== notif.id));
+    try {
+      const res = await fetch(`${API_BASE}/notifications/${notif.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error('[Notifs-admin] Erreur suppression notif:', err.message);
+    }
+    navigate(LINK_MAP[notif.link] ?? '/admin');
+  }, [API_BASE, navigate]);
+
+  const online  = users.filter(u => u.statut_activite === 'en_ligne');
+  const offline = users.filter(u => u.statut_activite !== 'en_ligne');
 
   return (
     <>
@@ -87,10 +133,15 @@ export default function AdminAccueil() {
                         <span className="notif-type-badge" style={{ color: config.color }}>{config.label}</span>
                         <span className="notif-widget-time">{timeAgo(n.created_at)}</span>
                       </div>
+                      {n.title && <div className="notif-widget-title">{n.title}</div>}
                       <div className="notif-widget-message">{n.message}</div>
                     </div>
-                    {n.link && (
-                      <button className="notif-voir-btn" onClick={() => navigate(`/admin/${n.link}`)}>
+                    {n.link && LINK_MAP[n.link] && (
+                      <button
+                        className="notif-widget-voir"
+                        onClick={() => handleVoir(n)}
+                        title="Voir"
+                      >
                         Voir
                       </button>
                     )}
@@ -105,39 +156,40 @@ export default function AdminAccueil() {
           <h2><i className="fa-solid fa-users"></i> Activité des utilisateurs</h2>
 
           <div className="user-status connected">
-            <h3><i className="fa-solid fa-circle text-green"></i> En ligne</h3>
+            <h3>
+              <i className="fa-solid fa-circle text-green"></i> En ligne
+              {online.length > 0 && <span className="status-count">{online.length}</span>}
+            </h3>
             <ul>
-              {online.map((u, i) => (
-                <li key={i}>
-                  <img src={resolvePhotoUrl(u.photo_url)} alt="" />
-                  {u.nom}
-                </li>
-              ))}
-              {online.length === 0 && <li>Aucun utilisateur en ligne</li>}
-            </ul>
-          </div>
-
-          <div className="user-status recent">
-            <h3><i className="fa-solid fa-clock"></i> Connectés récemment</h3>
-            <ul>
-              {recent.map((u, i) => (
-                <li key={i}>
-                  <img src={resolvePhotoUrl(u.photo_url)} alt="" />
-                  {u.nom}
-                </li>
-              ))}
+              {online.length === 0
+                ? <li className="status-empty">Aucun utilisateur en ligne</li>
+                : online.map(u => (
+                  <li key={u.id}>
+                    <span className="status-dot online"></span>
+                    <img src={resolvePhotoUrl(u.photo_url)} alt="" />
+                    <span>{u.nom}</span>
+                  </li>
+                ))
+              }
             </ul>
           </div>
 
           <div className="user-status offline">
-            <h3><i className="fa-solid fa-circle text-red"></i> Hors ligne</h3>
+            <h3>
+              <i className="fa-solid fa-circle text-red"></i> Hors ligne
+              {offline.length > 0 && <span className="status-count">{offline.length}</span>}
+            </h3>
             <ul>
-              {offline.map((u, i) => (
-                <li key={i}>
-                  <img src={resolvePhotoUrl(u.photo_url)} alt="" />
-                  {u.nom}
-                </li>
-              ))}
+              {offline.length === 0
+                ? <li className="status-empty">Aucun</li>
+                : offline.map(u => (
+                  <li key={u.id}>
+                    <span className="status-dot offline"></span>
+                    <img src={resolvePhotoUrl(u.photo_url)} alt="" />
+                    <span>{u.nom}</span>
+                  </li>
+                ))
+              }
             </ul>
           </div>
         </div>

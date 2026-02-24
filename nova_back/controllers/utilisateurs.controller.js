@@ -47,7 +47,7 @@ exports.createUser = async (req, res, next) => {
     const [result] = await pool.query(
       `INSERT INTO utilisateurs
         (civilite, nom, email, mot_de_passe, role, photo_url, statut_activite)
-       VALUES (?, ?, ?, ?, ?, ?, 'hors_ligne')`,
+       VALUES (?, ?, ?, ?, ?, ?, 'hors_ligne')  -- statut_activite VARCHAR(20)`,
       [civilite, nom, email, mot_de_passe, role, photo_url]
     );
 

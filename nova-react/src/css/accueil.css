@@ -134,6 +134,46 @@
   border: 2px solid var(--green);
 }
 
+/* ── Indicateur statut (point coloré) ── */
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.online  { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.25); }
+.status-dot.recent  { background: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,.25); }
+.status-dot.offline { background: #9ca3af; }
+
+/* ── Compteur dans le titre ── */
+.status-count {
+  margin-left: auto;
+  background: var(--hover);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+/* ── Heure dernière connexion ── */
+.status-time {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ── Vide ── */
+.status-empty {
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+  background: none !important;
+  padding: 4px 0 !important;
+}
+
 @media (max-width: 768px) {
   .dashboard-overview {
     grid-template-columns: 1fr;

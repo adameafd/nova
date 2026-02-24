@@ -37,19 +37,21 @@ export default function AdminCompteRendu() {
   const [reports, setReports] = useState([]);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [previewReport, setPreviewReport] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const fetchReports = () => {
-    fetch(`${API_BASE}/compte-rendus`)
+  const fetchReports = (role = roleFilter) => {
+    const url = role ? `${API_BASE}/compte-rendus?role=${role}` : `${API_BASE}/compte-rendus`;
+    fetch(url)
       .then(r => r.json())
       .then(data => setReports(Array.isArray(data) ? data : []))
       .catch(() => setReports([]))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchReports(); }, [API_BASE]);
+  useEffect(() => { fetchReports(roleFilter); }, [API_BASE, roleFilter]);
 
   const types = [...new Set(reports.map(r => r.type).filter(Boolean))];
 
@@ -141,6 +143,28 @@ export default function AdminCompteRendu() {
             <div className="cr-stat-label">Contributeurs</div>
           </div>
         </div>
+      </div>
+
+      {/* Toggle rôle */}
+      <div className="cr-role-toggle">
+        <button
+          className={`cr-role-btn${roleFilter === '' ? ' active' : ''}`}
+          onClick={() => setRoleFilter('')}
+        >
+          <i className="fa-solid fa-users"></i> Tous
+        </button>
+        <button
+          className={`cr-role-btn${roleFilter === 'data' ? ' active' : ''}`}
+          onClick={() => setRoleFilter('data')}
+        >
+          <i className="fa-solid fa-chart-bar"></i> Data
+        </button>
+        <button
+          className={`cr-role-btn${roleFilter === 'tech' ? ' active' : ''}`}
+          onClick={() => setRoleFilter('tech')}
+        >
+          <i className="fa-solid fa-wrench"></i> Technicien
+        </button>
       </div>
 
       {/* Filtres */}

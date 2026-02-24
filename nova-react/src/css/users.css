@@ -91,13 +91,15 @@
   font-weight: 600;
 }
 
-.role-badge.admin { background: #e67e22; color: #fff; }
-.role-badge.tech { background: #3498db; color: #fff; }
-.role-badge.data { background: #9b59b6; color: #fff; }
+.role-badge.admin      { background: #e67e22; color: #fff; }
+.role-badge.tech       { background: #3498db; color: #fff; }
+.role-badge.data       { background: #9b59b6; color: #fff; }
+.role-badge.entreprise { background: #1abc9c; color: #fff; }
 
-[data-theme="dark"] .role-badge.admin { background: #d35400; }
-[data-theme="dark"] .role-badge.tech { background: #2980b9; }
-[data-theme="dark"] .role-badge.data { background: #8e44ad; }
+[data-theme="dark"] .role-badge.admin      { background: #d35400; }
+[data-theme="dark"] .role-badge.tech       { background: #2980b9; }
+[data-theme="dark"] .role-badge.data       { background: #8e44ad; }
+[data-theme="dark"] .role-badge.entreprise { background: #16a085; }
 
 .form-error {
   background: #f8d7da;
@@ -114,6 +116,91 @@
   background: #5a1a1a;
   color: #ff9999;
   border-color: #7a2a2a;
+}
+
+/* ── Photo picker dans le modal ── */
+.photo-picker-group {
+  margin-bottom: 4px;
+}
+
+.photo-picker {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.photo-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 22px;
+}
+
+.photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: var(--transition);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.photo-upload-btn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* Hint email auto-généré */
+.email-auto-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--green);
+}
+
+/* Bouton pour régénérer l'email après édition manuelle */
+.email-reset-btn {
+  margin-top: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: var(--green);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.email-reset-btn:hover {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 @media (max-width: 768px) {

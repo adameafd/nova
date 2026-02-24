@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, resolvePhotoUrl } from '../../context/AuthContext';
+import { getSocket } from '../../socket';
 import '../../css/accueil.css';
 import '../../css/notifications.css';
+
+// Routes disponibles pour le rôle data
+const LINK_MAP = {
+  messages:       '/data/messagerie',
+  messagerie:     '/data/messagerie',
+  'compte-rendu': '/data/compte-rendu',
+  dashboard:      '/data/dashboard',
+};
 
 const TYPE_CONFIG = {
   COMPTE_RENDU: { icon: 'fa-file-lines', color: '#1abc9c', label: 'Compte rendu' },
@@ -31,14 +40,24 @@ export default function DataAccueil() {
   const currentUserId = Number(user?.id);
 
   const loadNotifications = useCallback(async () => {
-    if (!currentUserId) return;
+    if (!currentUserId) {
+      console.warn('[Notifs-data] userId invalide, fetch ignoré', currentUserId);
+      return;
+    }
     try {
-      const res = await fetch(`${API_BASE}/notifications/latest?userId=${currentUserId}&limit=10`);
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(Array.isArray(data) ? data : []);
+      const url = `${API_BASE}/notifications/latest?userId=${currentUserId}&limit=10`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('[Notifs-data] Erreur serveur', res.status, err);
+        return;
       }
-    } catch { /* silent */ }
+      const data = await res.json();
+      console.log('[Notifs-data] Reçu', data.length, 'notification(s)');
+      setNotifications(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('[Notifs-data] Erreur fetch:', err.message);
+    }
   }, [API_BASE, currentUserId]);
 
   useEffect(() => {
@@ -50,9 +69,31 @@ export default function DataAccueil() {
   }, [API_BASE, loadNotifications]);
 
   useEffect(() => {
+    const socket = getSocket();
+    const onStatusUpdate = ({ userId, statut }) => {
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, statut_activite: statut } : u
+      ));
+    };
+    socket.on('users:status_update', onStatusUpdate);
+    return () => socket.off('users:status_update', onStatusUpdate);
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(loadNotifications, 15000);
     return () => clearInterval(interval);
   }, [loadNotifications]);
+
+  const handleVoir = useCallback(async (notif) => {
+    setNotifications(prev => prev.filter(n => n.id !== notif.id));
+    try {
+      const res = await fetch(`${API_BASE}/notifications/${notif.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error('[Notifs-data] Erreur suppression notif:', err.message);
+    }
+    navigate(LINK_MAP[notif.link] ?? '/data');
+  }, [API_BASE, navigate]);
 
   return (
     <>
@@ -82,10 +123,15 @@ export default function DataAccueil() {
                         <span className="notif-type-badge" style={{ color: config.color }}>{config.label}</span>
                         <span className="notif-widget-time">{timeAgo(n.created_at)}</span>
                       </div>
+                      {n.title && <div className="notif-widget-title">{n.title}</div>}
                       <div className="notif-widget-message">{n.message}</div>
                     </div>
-                    {n.link && (
-                      <button className="notif-voir-btn" onClick={() => navigate(`/data/${n.link}`)}>
+                    {n.link && LINK_MAP[n.link] && (
+                      <button
+                        className="notif-widget-voir"
+                        onClick={() => handleVoir(n)}
+                        title="Voir"
+                      >
                         Voir
                       </button>
                     )}
@@ -98,20 +144,46 @@ export default function DataAccueil() {
 
         <div className="right-panel">
           <h2><i className="fa-solid fa-users"></i> Activité des utilisateurs</h2>
+
           <div className="user-status connected">
-            <h3><i className="fa-solid fa-circle text-green"></i> En ligne</h3>
+            <h3>
+              <i className="fa-solid fa-circle text-green"></i> En ligne
+              {users.filter(u => u.statut_activite === 'en_ligne').length > 0 && (
+                <span className="status-count">{users.filter(u => u.statut_activite === 'en_ligne').length}</span>
+              )}
+            </h3>
             <ul>
-              {users.slice(0, 2).map((u, i) => (
-                <li key={i}><img src={resolvePhotoUrl(u.photo_url)} alt="" />{u.nom}</li>
-              ))}
+              {users.filter(u => u.statut_activite === 'en_ligne').length === 0
+                ? <li className="status-empty">Aucun utilisateur en ligne</li>
+                : users.filter(u => u.statut_activite === 'en_ligne').map(u => (
+                  <li key={u.id}>
+                    <span className="status-dot online"></span>
+                    <img src={resolvePhotoUrl(u.photo_url)} alt="" />
+                    <span>{u.nom}</span>
+                  </li>
+                ))
+              }
             </ul>
           </div>
+
           <div className="user-status offline">
-            <h3><i className="fa-solid fa-circle text-red"></i> Hors ligne</h3>
+            <h3>
+              <i className="fa-solid fa-circle text-red"></i> Hors ligne
+              {users.filter(u => u.statut_activite !== 'en_ligne').length > 0 && (
+                <span className="status-count">{users.filter(u => u.statut_activite !== 'en_ligne').length}</span>
+              )}
+            </h3>
             <ul>
-              {users.slice(2, 4).map((u, i) => (
-                <li key={i}><img src={resolvePhotoUrl(u.photo_url)} alt="" />{u.nom}</li>
-              ))}
+              {users.filter(u => u.statut_activite !== 'en_ligne').length === 0
+                ? <li className="status-empty">Aucun</li>
+                : users.filter(u => u.statut_activite !== 'en_ligne').map(u => (
+                  <li key={u.id}>
+                    <span className="status-dot offline"></span>
+                    <img src={resolvePhotoUrl(u.photo_url)} alt="" />
+                    <span>{u.nom}</span>
+                  </li>
+                ))
+              }
             </ul>
           </div>
         </div>

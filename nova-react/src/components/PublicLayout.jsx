@@ -84,7 +84,9 @@ export default function PublicLayout() {
         </nav>
       </header>
 
-      <Outlet />
+      <main className="public-main">
+        <Outlet />
+      </main>
 
       <footer className="public-footer">
         &copy; {new Date().getFullYear()} NOVA Smart City &mdash; Tous droits réservés.
@@ -105,7 +107,6 @@ export default function PublicLayout() {
                 <input id="loginEmail" type="email" placeholder="abc@gmail.com" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
                 <label htmlFor="loginPassword">Mot de passe</label>
                 <input id="loginPassword" type="password" placeholder="********" required value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
-                <a href="#" className="forgot" onClick={e => e.preventDefault()}>Mot de passe oublié ?</a>
                 <button type="submit" className="btn-login" disabled={loading}>{loading ? 'Connexion...' : 'Se connecter'}</button>
               </form>
             </div>
