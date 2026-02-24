@@ -1,115 +1,241 @@
-# Modele de base de donnees NOVA
+# Modèle de base de données NOVA
 
 ## Diagramme relationnel
 
 ```
-utilisateurs (1) ──── (N) alertes          (via technicien_id)
-utilisateurs (1) ──── (N) messages         (via expediteur_id, destinataire_id)
-utilisateurs (1) ──── (N) interventions    (via technicien_id)
-utilisateurs (1) ──── (N) comptes_rendus   (via created_by)
-utilisateurs (1) ──── (N) notifications    (via user_id)
+utilisateurs (1) ──── (N) alertes             (via technicien_id, cree_par, traite_par)
+utilisateurs (1) ──── (N) alertes_internes    (via cree_par, technicien_id)
+utilisateurs (1) ──── (N) messages            (via expediteur_id, destinataire_id)
+utilisateurs (1) ──── (N) interventions       (via technicien_id)
+utilisateurs (1) ──── (N) comptes_rendus      (via created_by)
+utilisateurs (1) ──── (N) notifications       (via user_id, NULL = broadcast)
 ```
 
 ## Tables
 
+---
+
 ### utilisateurs
-| Colonne             | Type         | Description                  |
-|---------------------|--------------|------------------------------|
-| id                  | INT PK AUTO  | Identifiant unique           |
-| civilite            | VARCHAR(10)  | M. / Mme                    |
-| nom                 | VARCHAR(100) | Nom complet                  |
-| email               | VARCHAR(255) | Email (unique)               |
-| mot_de_passe        | VARCHAR(255) | Mot de passe                 |
-| role                | ENUM         | admin / technicien / data    |
-| photo_url           | VARCHAR(500) | Chemin photo profil          |
-| date_creation       | TIMESTAMP    | Date d'inscription           |
-| statut_activite     | ENUM         | actif / inactif              |
-| derniere_connexion  | DATETIME     | Derniere connexion           |
 
-### alertes
-| Colonne          | Type         | Description                     |
-|------------------|--------------|---------------------------------|
-| id               | INT PK AUTO  | Identifiant                     |
-| source_type      | ENUM         | citoyen / entreprise            |
-| nom_demandeur    | VARCHAR(100) | Nom du demandeur                |
-| nom_entreprise   | VARCHAR(150) | Nom entreprise (si entreprise)  |
-| email            | VARCHAR(255) | Email contact                   |
-| type_alerte      | VARCHAR(50)  | panne / proposition / autre     |
-| priorite         | ENUM         | basse / moyenne / haute         |
-| description      | TEXT         | Description de l'alerte         |
-| statut           | ENUM         | nouveau / en_cours / resolue    |
-| technicien_id    | INT FK       | Technicien assigne              |
-| date_creation    | TIMESTAMP    | Date de creation                |
-| date_mise_a_jour | TIMESTAMP    | Derniere modification           |
+| Colonne            | Type                                          | Description                        |
+|--------------------|-----------------------------------------------|------------------------------------|
+| id                 | INT PK AUTO_INCREMENT                         | Identifiant unique                 |
+| civilite           | VARCHAR(10) NULL                              | M. / Mme                           |
+| nom                | VARCHAR(100) NOT NULL                         | Nom complet                        |
+| email              | VARCHAR(255) NOT NULL UNIQUE                  | Email (unique)                     |
+| mot_de_passe       | VARCHAR(255) NOT NULL                         | Mot de passe (stocké en clair)     |
+| role               | ENUM('admin','technicien','data','entreprise') | Rôle utilisateur                  |
+| photo_url          | VARCHAR(500) NULL                             | Chemin vers la photo de profil     |
+| date_creation      | TIMESTAMP DEFAULT NOW                         | Date d'inscription                 |
+| statut_activite    | VARCHAR(20) DEFAULT 'hors_ligne'              | actif / hors_ligne                 |
+| derniere_connexion | DATETIME NULL                                 | Horodatage dernière connexion      |
 
-### alertes_historique
-Structure identique a `alertes` + `date_traitement`. Recoit les alertes resolues.
+---
+
+### alertes (alertes publiques — citoyen / entreprise)
+
+| Colonne          | Type                                               | Description                              |
+|------------------|----------------------------------------------------|------------------------------------------|
+| id               | INT PK AUTO_INCREMENT                              | Identifiant                              |
+| source_type      | ENUM('citoyen','entreprise') NOT NULL              | Source de l'alerte                       |
+| nom_demandeur    | VARCHAR(100) NULL                                  | Nom du déclarant                         |
+| nom_entreprise   | VARCHAR(150) NULL                                  | Nom entreprise (si source=entreprise)    |
+| contact          | VARCHAR(100) NULL                                  | Téléphone ou autre contact               |
+| email            | VARCHAR(255) NULL                                  | Email de contact                         |
+| unite_id         | INT NULL                                           | Unité IoT concernée                      |
+| capteur_id       | INT NULL                                           | Capteur concerné                         |
+| type_alerte      | VARCHAR(50) NULL                                   | Label : "Panne ou dysfonctionnement", "Proposition d'amélioration", "Autre" |
+| priorite         | ENUM('basse','moyenne','haute') DEFAULT 'moyenne'  | Calculé automatiquement depuis type_alerte |
+| description      | TEXT                                               | Détail de l'alerte                       |
+| statut           | ENUM('nouveau','en_cours','resolue','traitee','annulee') DEFAULT 'nouveau' | Cycle de vie |
+| technicien_id    | INT FK NULL → utilisateurs(id)                    | Technicien assigné                       |
+| traite_par       | INT NULL                                           | ID de l'utilisateur ayant traité         |
+| cree_par         | INT NULL                                           | ID utilisateur ayant créé (back-office)  |
+| date_creation    | TIMESTAMP DEFAULT NOW                              | Date de création                         |
+| date_mise_a_jour | TIMESTAMP ON UPDATE NOW                            | Dernière modification                    |
+
+**Règle priorité** (calculée côté backend, non modifiable par le client) :
+- `Panne ou dysfonctionnement` → `haute`
+- `Proposition d'amélioration` → `moyenne`
+- `Autre` → `basse`
+
+**Cycle de vie** : `nouveau` → `en_cours` → `traitee` ou `resolue` → archivage (statut `traitee` ou `annulee`).
+
+---
+
+### alertes_historique (archive des alertes résolues)
+
+Structure identique à `alertes` avec les champs supplémentaires :
+
+| Colonne         | Type          | Description                          |
+|-----------------|---------------|--------------------------------------|
+| date_traitement | TIMESTAMP NULL| Date à laquelle l'alerte a été archivée |
+
+> Les alertes dont le statut passe à `traitee` ou `annulee` restent dans la table `alertes`
+> et sont filtrées côté frontend / via `GET /api/alertes/historique`.
+
+---
+
+### alertes_internes (alertes internes entre employés)
+
+Table dédiée créée **manuellement** (pas via migration automatique, voir section Migrations).
+
+| Colonne          | Type                                          | Description                                |
+|------------------|-----------------------------------------------|--------------------------------------------|
+| id               | INT PK AUTO_INCREMENT                         | Identifiant                                |
+| categorie        | VARCHAR(150) NOT NULL                         | Catégorie libre (ex: "Panne ascenseur A")  |
+| priorite         | ENUM('basse','moyenne','haute') DEFAULT 'basse' | Priorité                                |
+| description      | TEXT                                          | Détail de l'alerte                         |
+| statut           | ENUM('en_cours','traitee','annulee') DEFAULT 'en_cours' | Statut                        |
+| cree_par         | INT NOT NULL FK → utilisateurs(id) CASCADE    | Créateur de l'alerte                       |
+| technicien_id    | INT NULL FK → utilisateurs(id) SET NULL       | Technicien assigné (optionnel)             |
+| date_creation    | TIMESTAMP DEFAULT NOW                         | Date de création                           |
+| date_mise_a_jour | TIMESTAMP ON UPDATE NOW                       | Dernière modification                      |
+
+**Règles d'accès :**
+- `admin` : voit toutes les alertes internes, peut modifier le statut de toutes.
+- `technicien` / `data` : voient toutes les alertes internes, mais ne peuvent modifier le statut / supprimer que leurs propres alertes (`cree_par = user.id`).
+
+**SQL de création (à exécuter manuellement) :**
+```sql
+CREATE TABLE IF NOT EXISTS alertes_internes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  categorie VARCHAR(150) NOT NULL,
+  priorite ENUM('basse','moyenne','haute') NOT NULL DEFAULT 'basse',
+  description TEXT,
+  statut ENUM('en_cours','traitee','annulee') NOT NULL DEFAULT 'en_cours',
+  cree_par INT NOT NULL,
+  technicien_id INT DEFAULT NULL,
+  date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  date_mise_a_jour TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (cree_par) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+  FOREIGN KEY (technicien_id) REFERENCES utilisateurs(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+---
 
 ### messages
-| Colonne          | Type        | Description              |
-|------------------|-------------|--------------------------|
-| id               | INT PK AUTO | Identifiant              |
-| expediteur_id    | INT FK      | Auteur du message        |
-| destinataire_id  | INT FK      | Destinataire             |
-| contenu          | TEXT        | Corps du message         |
-| date_envoi       | TIMESTAMP   | Date d'envoi             |
-| lu               | TINYINT     | 0 = non lu, 1 = lu      |
-| modifie          | TINYINT     | 0 = original, 1 = edite |
+
+| Colonne         | Type                                | Description                   |
+|-----------------|-------------------------------------|-------------------------------|
+| id              | INT PK AUTO_INCREMENT               | Identifiant                   |
+| expediteur_id   | INT FK → utilisateurs(id) CASCADE   | Auteur du message             |
+| destinataire_id | INT FK → utilisateurs(id) CASCADE   | Destinataire                  |
+| contenu         | TEXT NOT NULL                       | Corps du message              |
+| date_envoi      | TIMESTAMP DEFAULT NOW               | Date d'envoi                  |
+| lu              | TINYINT(1) DEFAULT 0                | 0 = non lu, 1 = lu            |
+| modifie         | TINYINT(1) DEFAULT 0                | 0 = original, 1 = édité       |
+
+---
 
 ### stock
-| Colonne       | Type         | Description                |
-|---------------|--------------|----------------------------|
-| id            | INT PK AUTO  | Identifiant                |
-| nom           | VARCHAR(150) | Nom du materiel            |
-| code          | VARCHAR(50)  | Code reference             |
-| categorie     | VARCHAR(100) | Categorie (energie, etc.)  |
-| quantite      | INT          | Quantite en stock          |
-| seuil_alerte  | INT          | Seuil critique (defaut: 5) |
-| total_utilise | INT          | Quantite totale utilisee   |
+
+| Colonne       | Type          | Description                         |
+|---------------|---------------|-------------------------------------|
+| id            | INT PK AUTO   | Identifiant                         |
+| nom           | VARCHAR(150)  | Nom du matériel                     |
+| code          | VARCHAR(50)   | Code référence (généré depuis nom)  |
+| categorie     | VARCHAR(100)  | Catégorie                           |
+| quantite      | INT DEFAULT 0 | Quantité en stock                   |
+| seuil_alerte  | INT DEFAULT 5 | Seuil déclenchant une notification  |
+| total_utilise | INT DEFAULT 0 | Quantité totale utilisée            |
+
+> Une notification `STOCK` broadcast est créée automatiquement quand `quantite <= seuil_alerte`.
+> Anti-doublon : une seule notif STOCK non-lue par produit.
+
+---
 
 ### interventions
-| Colonne        | Type         | Description                       |
-|----------------|--------------|-----------------------------------|
-| id             | INT PK AUTO  | Identifiant                       |
-| titre          | VARCHAR(200) | Titre de l'intervention           |
-| description    | TEXT         | Details                           |
-| priorite       | ENUM         | basse / moyenne / haute / critique|
-| statut         | ENUM         | en_attente / en_cours / resolue / annulee |
-| unite          | VARCHAR(100) | Unite concernee                   |
-| technicien_id  | INT FK       | Technicien assigne                |
-| date_creation  | TIMESTAMP    | Date de creation                  |
-| date_maj       | TIMESTAMP    | Derniere modification             |
+
+| Colonne        | Type                                               | Description                          |
+|----------------|----------------------------------------------------|--------------------------------------|
+| id             | INT PK AUTO                                        | Identifiant                          |
+| titre          | VARCHAR(200) NOT NULL                              | Titre de l'intervention              |
+| description    | TEXT                                               | Détails                              |
+| priorite       | ENUM('basse','moyenne','haute','critique')         | Priorité                             |
+| statut         | ENUM('en_attente','en_cours','resolue','annulee')  | Statut                               |
+| unite          | VARCHAR(100) NULL                                  | Unité concernée                      |
+| technicien_id  | INT FK NOT NULL → utilisateurs(id) CASCADE         | Technicien assigné                   |
+| date_creation  | TIMESTAMP DEFAULT NOW                              | Date de création                     |
+| date_maj       | TIMESTAMP ON UPDATE NOW                            | Dernière modification                |
+
+---
 
 ### comptes_rendus
-| Colonne     | Type         | Description              |
-|-------------|--------------|--------------------------|
-| id          | INT PK AUTO  | Identifiant              |
-| titre       | VARCHAR(255) | Titre du rapport         |
-| type        | VARCHAR(100) | Type de rapport          |
-| fichier_url | VARCHAR(500) | Chemin du fichier        |
-| nom_fichier | VARCHAR(255) | Nom original du fichier  |
-| created_by  | INT FK       | Auteur                   |
-| created_at  | TIMESTAMP    | Date d'upload            |
+
+| Colonne     | Type                               | Description              |
+|-------------|------------------------------------|--------------------------|
+| id          | INT PK AUTO                        | Identifiant              |
+| titre       | VARCHAR(255) NULL                  | Titre du rapport         |
+| type        | VARCHAR(100) NOT NULL              | Type de rapport          |
+| fichier_url | VARCHAR(500) NOT NULL              | Chemin fichier (uploads) |
+| nom_fichier | VARCHAR(255) NOT NULL              | Nom original du fichier  |
+| created_by  | INT FK → utilisateurs(id) CASCADE  | Auteur                   |
+| created_at  | TIMESTAMP DEFAULT NOW              | Date d'upload            |
+
+---
 
 ### notifications
-| Colonne    | Type        | Description                    |
-|------------|-------------|--------------------------------|
-| id         | INT PK AUTO | Identifiant                    |
-| user_id    | INT FK NULL | Destinataire (NULL = global)   |
-| type       | VARCHAR(50) | INFO / ALERTE / COMPTE_RENDU   |
-| message    | TEXT        | Contenu                        |
-| link       | VARCHAR(255)| Lien de redirection            |
-| is_read    | TINYINT     | 0 = non lu, 1 = lu            |
-| created_at | TIMESTAMP   | Date de creation               |
+
+| Colonne    | Type                   | Description                                             |
+|------------|------------------------|---------------------------------------------------------|
+| id         | INT PK AUTO            | Identifiant                                             |
+| user_id    | INT FK NULL            | Destinataire. `NULL` = **broadcast** (visible par tous) |
+| type       | VARCHAR(50) DEFAULT 'INFO' | INFO / ALERTE / ALERTE_INTERNE / STOCK / COMPTE_RENDU / INTERVENTION |
+| title      | VARCHAR(255) NULL      | Titre court affiché en gras                             |
+| message    | TEXT                   | Corps de la notification                                |
+| link       | VARCHAR(255) NULL      | Slug de navigation cible                                |
+| is_read    | TINYINT(1) DEFAULT 0   | 0 = non lue, 1 = lue                                   |
+| created_at | TIMESTAMP DEFAULT NOW  | Date de création                                        |
+
+**Logique broadcast :** La requête frontend filtre `WHERE user_id = ? OR user_id IS NULL`,
+donc toute notification avec `user_id = NULL` est visible par admin, technicien ET data.
+
+**Déclencheurs automatiques :**
+
+| Événement             | type           | user_id    | link              |
+|-----------------------|----------------|------------|-------------------|
+| Nouvelle alerte       | ALERTE         | NULL       | alertes           |
+| Alerte interne créée  | ALERTE_INTERNE | NULL       | alertes-internes  |
+| Intervention créée    | INTERVENTION   | NULL       | interventions     |
+| Intervention assignée | INTERVENTION   | technicien | interventions     |
+| Stock faible/rupture  | STOCK          | NULL       | stock             |
+| Compte rendu déposé   | COMPTE_RENDU   | NULL       | compte-rendu      |
+| Message reçu          | INFO           | destinataire | messages        |
+
+---
 
 ### releves_capteurs (historique IoT)
-| Colonne     | Type         | Description                         |
-|-------------|--------------|-------------------------------------|
-| id          | INT PK AUTO  | Identifiant                         |
-| capteur_id  | VARCHAR(50)  | Identifiant du capteur              |
-| unite       | VARCHAR(30)  | Unite de mesure (C, %, dB, kWh)     |
-| type_mesure | VARCHAR(50)  | temperature / humidite / co2 / etc. |
-| valeur      | DECIMAL(10,2)| Valeur mesuree                      |
-| timestamp   | TIMESTAMP    | Horodatage de la mesure             |
 
-**Index** : `(capteur_id, timestamp)` et `(type_mesure, timestamp)` pour les requetes d'historique performantes.
+| Colonne     | Type            | Description                             |
+|-------------|-----------------|-----------------------------------------|
+| id          | INT PK AUTO     | Identifiant                             |
+| capteur_id  | VARCHAR(50)     | Identifiant du capteur                  |
+| unite       | VARCHAR(30)     | Unité de mesure (°C, %, dB, kWh)       |
+| type_mesure | VARCHAR(50)     | temperature / humidite / co2 / bruit    |
+| valeur      | DECIMAL(10,2)   | Valeur mesurée                          |
+| timestamp   | TIMESTAMP       | Horodatage de la mesure                 |
+
+**Index** : `(capteur_id, timestamp)` et `(type_mesure, timestamp)` pour les requêtes d'historique.
+
+---
+
+## Migrations
+
+Le fichier `nova_back/config/db.js` exécute des migrations **idempotentes** au démarrage
+(les erreurs `ER_DUP_FIELDNAME` et `ER_TABLE_EXISTS_ERROR` sont ignorées silencieusement).
+
+La table `alertes_internes` n'est **pas** créée par migration automatique (problème FK errno 150
+sur certains environnements MySQL). Elle doit être créée manuellement via le SQL fourni ci-dessus.
+
+Pour nettoyer une base existante qui aurait des colonnes résiduelles d'anciennes migrations :
+```sql
+-- Seulement si ces colonnes existent déjà
+ALTER TABLE alertes DROP COLUMN IF EXISTS is_interne;
+ALTER TABLE alertes DROP COLUMN IF EXISTS categorie;
+UPDATE alertes SET source_type = 'citoyen'
+  WHERE source_type NOT IN ('citoyen', 'entreprise');
+ALTER TABLE alertes MODIFY COLUMN source_type
+  ENUM('citoyen', 'entreprise') NOT NULL DEFAULT 'citoyen';
+```
