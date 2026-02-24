@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS utilisateurs (
   nom VARCHAR(100) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   mot_de_passe VARCHAR(255) NOT NULL,
-  role ENUM('admin', 'technicien', 'data') NOT NULL DEFAULT 'technicien',
+  role ENUM('admin', 'technicien', 'data', 'entreprise') NOT NULL DEFAULT 'technicien',
   photo_url VARCHAR(500) DEFAULT NULL,
   date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  statut_activite ENUM('actif', 'inactif') DEFAULT 'actif',
+  statut_activite VARCHAR(20) DEFAULT 'hors_ligne',
   derniere_connexion DATETIME DEFAULT NULL
 );
 
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS alertes (
   type_alerte VARCHAR(50) DEFAULT NULL,
   priorite ENUM('basse', 'moyenne', 'haute') DEFAULT 'moyenne',
   description TEXT,
-  statut ENUM('nouveau', 'en_cours', 'resolue') DEFAULT 'nouveau',
+  statut ENUM('nouveau', 'en_cours', 'resolue', 'traitee', 'annulee') DEFAULT 'nouveau',
   technicien_id INT DEFAULT NULL,
   traite_par INT DEFAULT NULL,
   cree_par INT DEFAULT NULL,
@@ -100,6 +100,21 @@ CREATE TABLE IF NOT EXISTS interventions (
   FOREIGN KEY (technicien_id) REFERENCES utilisateurs(id) ON DELETE CASCADE
 );
 
+-- Internal alerts (between employees)
+CREATE TABLE IF NOT EXISTS alertes_internes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  categorie VARCHAR(150) NOT NULL,
+  priorite ENUM('basse','moyenne','haute') NOT NULL DEFAULT 'basse',
+  description TEXT,
+  statut ENUM('en_cours','traitee','annulee') NOT NULL DEFAULT 'en_cours',
+  cree_par INT NOT NULL,
+  technicien_id INT DEFAULT NULL,
+  date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  date_mise_a_jour TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (cree_par) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+  FOREIGN KEY (technicien_id) REFERENCES utilisateurs(id) ON DELETE SET NULL
+);
+
 -- Reports
 CREATE TABLE IF NOT EXISTS comptes_rendus (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -117,6 +132,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT DEFAULT NULL,
   type VARCHAR(50) NOT NULL DEFAULT 'INFO',
+  title VARCHAR(255) DEFAULT NULL,
   message TEXT,
   link VARCHAR(255) DEFAULT NULL,
   is_read TINYINT(1) NOT NULL DEFAULT 0,
@@ -135,6 +151,23 @@ CREATE TABLE IF NOT EXISTS releves_capteurs (
   INDEX idx_capteur_time (capteur_id, timestamp),
   INDEX idx_type_time (type_mesure, timestamp)
 );
+
+-- ============================================
+-- Migration : statut_activite & alertes.statut
+-- À exécuter UNE FOIS sur une DB existante
+-- ============================================
+ALTER TABLE utilisateurs
+  MODIFY COLUMN statut_activite VARCHAR(20) DEFAULT 'hors_ligne';
+
+ALTER TABLE alertes
+  MODIFY COLUMN statut ENUM('nouveau','en_cours','resolue','traitee','annulee') DEFAULT 'nouveau';
+
+-- ============================================
+-- Migration : ajout rôle entreprise
+-- À exécuter UNE FOIS sur une DB existante
+-- ============================================
+ALTER TABLE utilisateurs
+  MODIFY COLUMN role ENUM('admin', 'technicien', 'data', 'entreprise') NOT NULL DEFAULT 'technicien';
 
 -- ============================================
 -- Default admin user (password: admin123)

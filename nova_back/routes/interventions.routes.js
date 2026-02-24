@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const { createNotif } = require("../utils/notif");
 
 router.get("/", async (req, res, next) => {
   try {
@@ -72,7 +73,34 @@ router.post("/", async (req, res, next) => {
       [result.insertId]
     );
 
-    res.status(201).json(rows[0]);
+    const created = rows[0];
+    res.status(201).json(created);
+
+    // Notification : broadcast (admin + tech + data) + privée pour le technicien assigné
+    try {
+      const techNom = created?.technicien_nom ?? 'Technicien';
+      const msg = `Assignée à ${techNom} — priorité ${prio}. ${description.substring(0, 100)}`;
+      // Broadcast
+      await createNotif({
+        user_id: null,
+        type: 'INTERVENTION',
+        title: `Nouvelle intervention : ${titre}`,
+        message: msg,
+        link: 'interventions',
+      });
+      // Notification privée pour le technicien concerné
+      if (Number(technicien_id)) {
+        await createNotif({
+          user_id: Number(technicien_id),
+          type: 'INTERVENTION',
+          title: `Intervention assignée : ${titre}`,
+          message: `Priorité ${prio}. ${description.substring(0, 100)}`,
+          link: 'interventions',
+        });
+      }
+    } catch (notifErr) {
+      console.error("[notif] Erreur notif intervention:", notifErr.message);
+    }
   } catch (err) {
     next(err);
   }

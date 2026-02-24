@@ -3,18 +3,27 @@ const router = express.Router();
 const db = require("../config/db");
 const upload = require("../middlewares/upload");
 const multer = require("multer");
+const { createNotif } = require("../utils/notif");
 
 console.log("[comptes-rendus] Route chargee avec succes");
 
-// GET /api/compte-rendus — Admin : tous les rapports
+// GET /api/compte-rendus — Admin : tous les rapports (optionnel: ?role=data|tech)
 router.get("/", async (req, res, next) => {
   try {
-    const [rows] = await db.query(`
+    const { role } = req.query;
+    let query = `
       SELECT cr.*, u.nom AS auteur_nom, u.email AS auteur_email
       FROM comptes_rendus cr
       LEFT JOIN utilisateurs u ON cr.created_by = u.id
-      ORDER BY cr.created_at DESC
-    `);
+    `;
+    const params = [];
+    if (role === 'tech') {
+      query += " WHERE u.role IN ('tech', 'technicien')";
+    } else if (role === 'data') {
+      query += " WHERE u.role = 'data'";
+    }
+    query += " ORDER BY cr.created_at DESC";
+    const [rows] = await db.query(query, params);
     res.json(rows);
   } catch (err) {
     console.error("[comptes-rendus] GET / erreur :", err.message);
@@ -103,16 +112,17 @@ router.post("/", (req, res, next) => {
 
       const [rows] = await db.query("SELECT * FROM comptes_rendus WHERE id = ?", [result.insertId]);
 
-      // Créer une notification automatique
+      // Créer une notification automatique (broadcast à tous les admins)
       try {
         const [userRows] = await db.query("SELECT nom FROM utilisateurs WHERE id = ?", [parseInt(created_by, 10)]);
         const userName = userRows[0]?.nom || "Utilisateur";
-        const notifMsg = `${userName} a ajouté un compte rendu : ${titre || nom_fichier}`;
-        await db.query(
-          "INSERT INTO notifications (user_id, type, message, link) VALUES (NULL, 'COMPTE_RENDU', ?, 'compte-rendu')",
-          [notifMsg]
-        );
-        console.log("[notif] Notification compte rendu créée");
+        await createNotif({
+          user_id: null,
+          type: 'COMPTE_RENDU',
+          title: titre || nom_fichier,
+          message: `${userName} a déposé un nouveau compte rendu (${type})`,
+          link: 'compte-rendu',
+        });
       } catch (notifErr) {
         console.error("[notif] Erreur création notif CR:", notifErr.message);
       }

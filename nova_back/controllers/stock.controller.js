@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { createNotif } = require("../utils/notif");
 
 
 function generateCode(nom) {
@@ -85,26 +86,34 @@ exports.updateStockItem = async (req, res, next) => {
       [newNom, code, newCategorie, newQuantite, newSeuil, newUsed, id]
     );
 
-    // Notification si stock faible / rupture (éviter doublons)
-    if (newQuantite <= newSeuil) {
+    // Notification si stock faible / rupture
+    const q = Number(newQuantite);
+    const s = Number(newSeuil);
+    console.log(`[stock] Vérif notif → id=${id} produit="${newNom}" quantite=${q} seuil=${s}`);
+    if (q <= s) {
+      console.log(`[stock] ⚠ Condition déclenchée : ${q} <= ${s} pour "${newNom}" (id=${id})`);
       try {
+        // Anti-doublon : ne pas recréer si une notif STOCK non-lue identique existe déjà
         const [existing] = await pool.query(
           "SELECT id FROM notifications WHERE type = 'STOCK' AND is_read = 0 AND message LIKE ?",
           [`%${newNom}%`]
         );
+        console.log(`[stock] Notifs STOCK non-lues trouvées pour "${newNom}": ${existing.length}`);
         if (existing.length === 0) {
-          const msg = newQuantite === 0
-            ? `Rupture de stock : ${newNom}`
-            : `Stock faible : ${newNom} (${newQuantite} unité${newQuantite > 1 ? "s" : ""})`;
-          await pool.query(
-            "INSERT INTO notifications (user_id, type, message, link) VALUES (NULL, 'STOCK', ?, 'stock')",
-            [msg]
-          );
-          console.log("[notif] Notification stock créée pour", newNom);
+          const notifTitle = q === 0 ? 'Rupture de stock' : 'Stock faible';
+          const msg = q === 0
+            ? `${newNom} est en rupture totale (seuil : ${s})`
+            : `${newNom} : ${q} unité${q > 1 ? 's' : ''} restante${q > 1 ? 's' : ''} (seuil : ${s})`;
+          await createNotif({ user_id: null, type: 'STOCK', title: notifTitle, message: msg, link: 'stock' });
+          console.log(`[stock] ✓ Notification STOCK créée pour "${newNom}"`);
+        } else {
+          console.log(`[stock] Notif non créée — doublon existant (id=${existing[0].id})`);
         }
       } catch (notifErr) {
-        console.error("[notif] Erreur création notif stock:", notifErr.message);
+        console.error("[stock] Erreur création notif stock:", notifErr.message, notifErr.code);
       }
+    } else {
+      console.log(`[stock] Quantité OK (${q} > ${s}), pas de notif`);
     }
 
     const [rows] = await pool.query(

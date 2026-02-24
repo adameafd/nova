@@ -46,17 +46,49 @@ async function runMigrations() {
       )`,
     },
     {
-      name: "notif_v2_user_nullable",
-      sql: "ALTER TABLE notifications MODIFY user_id INT NULL",
-    },
-    {
       name: "notif_v2_add_message",
       sql: "ALTER TABLE notifications ADD COLUMN message TEXT NULL",
     },
     {
-      name: "notif_v2_title_nullable",
-      sql: "ALTER TABLE notifications MODIFY COLUMN title VARCHAR(255) NULL DEFAULT NULL",
+      name: "notif_v2_add_title",
+      sql: "ALTER TABLE notifications ADD COLUMN title VARCHAR(255) NULL DEFAULT NULL",
     },
+    // Garantit que la colonne link existe (peut manquer sur les vieilles instances)
+    {
+      name: "notif_ensure_link",
+      sql: "ALTER TABLE notifications ADD COLUMN link VARCHAR(255) NULL DEFAULT NULL",
+    },
+    // ── Alertes : étendre le ENUM statut pour inclure traitee et annulee ──
+    // Sans cette migration, MySQL stockait '' silencieusement → Historique vide
+    {
+      name: "alertes_statut_enum_v2",
+      sql: "ALTER TABLE alertes MODIFY COLUMN statut ENUM('nouveau','en_cours','resolue','traitee','annulee') DEFAULT 'en_cours'",
+    },
+    // ── Normaliser les anciens type_alerte (codes courts → labels complets) ──
+    {
+      name: "alertes_type_norm_panne",
+      sql: "UPDATE alertes SET type_alerte = 'Panne ou dysfonctionnement' WHERE type_alerte = 'panne'",
+    },
+    {
+      name: "alertes_type_norm_autre",
+      sql: "UPDATE alertes SET type_alerte = 'Autre' WHERE type_alerte = 'autre'",
+    },
+    {
+      name: "alertes_type_norm_proposition",
+      sql: "UPDATE alertes SET type_alerte = 'Proposition d''amélioration' WHERE type_alerte = 'proposition'",
+    },
+    // ── Recalcule la priorité depuis le type pour toutes les alertes ──
+    // Corrige les anciens enregistrements qui avaient la valeur par défaut 'moyenne'
+    {
+      name: "alertes_fix_priorite_from_type",
+      sql: `UPDATE alertes SET priorite = CASE
+        WHEN type_alerte = 'Panne ou dysfonctionnement' THEN 'haute'
+        WHEN type_alerte = 'Proposition d''amélioration' THEN 'moyenne'
+        ELSE 'basse'
+      END`,
+    },
+    // alertes_internes : table créée manuellement via SQL (FK errno 150 en migration)
+    // Voir init.sql pour le schéma complet.
   ];
 
   for (const migration of migrations) {

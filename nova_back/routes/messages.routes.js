@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const { createNotif } = require("../utils/notif");
 
 // GET /api/messages?user1=X&user2=Y
 router.get("/", async (req, res, next) => {
@@ -57,6 +58,25 @@ router.post("/", async (req, res, next) => {
       `SELECT * FROM messages WHERE id = ?`,
       [result.insertId]
     );
+
+    // Notifier le destinataire
+    try {
+      const [senderRows] = await db.query(
+        "SELECT nom FROM utilisateurs WHERE id = ?",
+        [expediteur_id]
+      );
+      const senderName = senderRows[0]?.nom || "Quelqu'un";
+      const preview = contenu.length > 80 ? contenu.substring(0, 80) + "…" : contenu;
+      await createNotif({
+        user_id: Number(destinataire_id),
+        type: 'INFO',
+        title: `Message de ${senderName}`,
+        message: preview,
+        link: 'messages',
+      });
+    } catch (notifErr) {
+      console.error("[notif] Erreur création notif message:", notifErr.message);
+    }
 
     res.status(201).json(rows[0]);
   } catch (err) {
