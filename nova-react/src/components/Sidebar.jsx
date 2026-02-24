@@ -10,6 +10,7 @@ const adminMenu = [
   { key: 'controle', path: '/admin/control-unit', icon: 'fa-cogs', label: 'Unité de contrôle' },
   { key: 'users', path: '/admin/users', icon: 'fa-users', label: 'Utilisateurs' },
   { key: 'alerte', path: '/admin/alerts', icon: 'fa-triangle-exclamation', label: 'Alertes' },
+  { key: 'alertes-internes', path: '/admin/alertes-internes', icon: 'fa-user-shield', label: 'Alertes internes' },
   { key: 'interventions', path: '/admin/interventions', icon: 'fa-list-check', label: 'Interventions' },
   { key: 'stock', path: '/admin/stock', icon: 'fa-boxes-stacked', label: 'Stock' },
   { key: 'compte-rendu', path: '/admin/compte-rendu', icon: 'fa-file-arrow-up', label: 'Compte Rendu' },
@@ -20,23 +21,31 @@ const techMenu = [
   { key: 'accueil', path: '/tech', icon: 'fa-house', label: 'Accueil' },
   { key: 'controle', path: '/tech/control-unit', icon: 'fa-cogs', label: 'Unité de contrôle' },
   { key: 'alerte', path: '/tech/alerts', icon: 'fa-triangle-exclamation', label: 'Alertes' },
+  { key: 'alertes-internes', path: '/tech/alertes-internes', icon: 'fa-user-shield', label: 'Alertes internes' },
   { key: 'interventions', path: '/tech/interventions', icon: 'fa-list-check', label: 'Interventions' },
   { key: 'stock', path: '/tech/stock', icon: 'fa-boxes-stacked', label: 'Stock' },
+  { key: 'compte-rendu', path: '/tech/compte-rendu', icon: 'fa-file-arrow-up', label: 'Compte Rendu' },
   { key: 'messagerie', path: '/tech/messagerie', icon: 'fa-comment-dots', label: 'Messagerie' },
 ];
 
 const dataMenu = [
   { key: 'accueil', path: '/data', icon: 'fa-house', label: 'Accueil' },
   { key: 'dashboard', path: '/data/dashboard', icon: 'fa-chart-line', label: 'Dashboard' },
+  { key: 'alertes-internes', path: '/data/alertes-internes', icon: 'fa-user-shield', label: 'Alertes internes' },
   { key: 'compte-rendu', path: '/data/compte-rendu', icon: 'fa-file-arrow-down', label: 'Compte Rendu' },
   { key: 'messagerie', path: '/data/messagerie', icon: 'fa-comment-dots', label: 'Messagerie' },
+];
+
+const entrepriseMenu = [
+  { key: 'accueil', path: '/entreprise', icon: 'fa-house', label: 'Accueil' },
+  { key: 'alerte', path: '/entreprise/alerts', icon: 'fa-triangle-exclamation', label: 'Mes alertes' },
 ];
 
 export default function Sidebar({ role = 'admin', collapsed, onToggle, globalSearch }) {
   const location = useLocation();
   const { user, API_BASE } = useAuth();
   const [totalUnread, setTotalUnread] = useState(0);
-  const menu = role === 'admin' ? adminMenu : role === 'data' ? dataMenu : techMenu;
+  const menu = role === 'admin' ? adminMenu : role === 'data' ? dataMenu : role === 'entreprise' ? entrepriseMenu : techMenu;
 
   // Filter menu items based on global search
   const filteredMenu = globalSearch

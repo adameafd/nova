@@ -16,6 +16,7 @@ import Login from './pages/public/Login';
 import AdminAccueil from './pages/admin/Accueil';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminAlerts from './pages/admin/Alerts';
+import AdminAlertesInternes from './pages/admin/AlertesInternes';
 import AdminInterventions from './pages/admin/Interventions';
 import AdminMessagerie from './pages/admin/Messagerie';
 import AdminStock from './pages/admin/Stock';
@@ -26,14 +27,21 @@ import AdminCompteRendu from './pages/admin/CompteRendu';
 /* Tech pages */
 import TechAccueil from './pages/tech/Accueil';
 import TechAlerts from './pages/tech/Alerts';
+import TechAlertesInternes from './pages/tech/AlertesInternes';
 import TechInterventions from './pages/tech/Interventions';
 import TechMessagerie from './pages/tech/Messagerie';
 import TechStock from './pages/tech/Stock';
 import TechControlUnit from './pages/tech/ControlUnit';
+import TechCompteRendu from './pages/tech/CompteRendu';
+
+/* Entreprise pages */
+import EntrepriseAccueil from './pages/entreprise/Accueil';
+import EntrepriseAlerts from './pages/entreprise/Alerts';
 
 /* Data pages */
 import DataAccueil from './pages/data/Accueil';
 import DataDashboard from './pages/data/Dashboard';
+import DataAlertesInternes from './pages/data/AlertesInternes';
 import DataCompteRendu from './pages/data/CompteRendu';
 import DataMessagerie from './pages/data/Messagerie';
 
@@ -83,6 +91,7 @@ export default function App() {
           <Route index element={<AdminAccueil />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="alerts" element={<AdminAlerts />} />
+          <Route path="alertes-internes" element={<AdminAlertesInternes />} />
           <Route path="interventions" element={<AdminInterventions />} />
           <Route path="messagerie" element={<AdminMessagerie />} />
           <Route path="stock" element={<AdminStock />} />
@@ -95,16 +104,25 @@ export default function App() {
         <Route path="/tech" element={<ProtectedRoute allowedRoles={["tech", "technicien"]}><Layout role="tech" /></ProtectedRoute>}>
           <Route index element={<TechAccueil />} />
           <Route path="alerts" element={<TechAlerts />} />
+          <Route path="alertes-internes" element={<TechAlertesInternes />} />
           <Route path="interventions" element={<TechInterventions />} />
           <Route path="messagerie" element={<TechMessagerie />} />
           <Route path="stock" element={<TechStock />} />
           <Route path="control-unit" element={<TechControlUnit />} />
+          <Route path="compte-rendu" element={<TechCompteRendu />} />
+        </Route>
+
+        {/* Entreprise routes */}
+        <Route path="/entreprise" element={<ProtectedRoute allowedRoles={["entreprise"]}><Layout role="entreprise" /></ProtectedRoute>}>
+          <Route index element={<EntrepriseAccueil />} />
+          <Route path="alerts" element={<EntrepriseAlerts />} />
         </Route>
 
         {/* Data routes */}
         <Route path="/data" element={<ProtectedRoute allowedRoles={["data"]}><Layout role="data" /></ProtectedRoute>}>
           <Route index element={<DataAccueil />} />
           <Route path="dashboard" element={<DataDashboard />} />
+          <Route path="alertes-internes" element={<DataAlertesInternes />} />
           <Route path="compte-rendu" element={<DataCompteRendu />} />
           <Route path="messagerie" element={<DataMessagerie />} />
         </Route>

@@ -36,6 +36,53 @@
   border: 1px solid var(--border);
 }
 
+.mode-badge.interne {
+  background: #ede9fe;
+  color: #7c3aed;
+  border-color: #c4b5fd;
+}
+
+[data-theme="dark"] .mode-badge.interne {
+  background: #2e1065;
+  color: #c4b5fd;
+  border-color: #4c1d95;
+}
+
+/* ── Badges rôle (alertes internes) ── */
+.badge.role-admin {
+  background: #fee2e2;
+  color: #dc2626;
+}
+.badge.role-tech {
+  background: #dbeafe;
+  color: #2563eb;
+}
+.badge.role-data {
+  background: #dcfce7;
+  color: #16a34a;
+}
+.badge.role-autre {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+[data-theme="dark"] .badge.role-admin {
+  background: #450a0a;
+  color: #fca5a5;
+}
+[data-theme="dark"] .badge.role-tech {
+  background: #172554;
+  color: #93c5fd;
+}
+[data-theme="dark"] .badge.role-data {
+  background: #052e16;
+  color: #86efac;
+}
+[data-theme="dark"] .badge.role-autre {
+  background: #374151;
+  color: #d1d5db;
+}
+
 .btn-history {
   background: var(--panel);
   color: var(--green-dark);
@@ -186,9 +233,9 @@
   border-bottom: none;
 }
 
-.status-select,
-.tech-select {
-  padding: 6px 10px;
+/* ── Selects inline dans le tableau ── */
+.inline-select {
+  padding: 5px 8px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--panel);
@@ -196,48 +243,146 @@
   font-size: 13px;
   cursor: pointer;
   transition: var(--transition);
-  min-width: 130px;
   font-family: "Poppins", sans-serif;
+  width: 100%;
 }
 
-.status-select:focus,
-.tech-select:focus {
+.inline-select.tech-select   { min-width: 140px; }
+.inline-select.status-select { min-width: 110px; }
+
+.inline-select:focus {
   outline: none;
   border-color: var(--green);
   box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.1);
 }
 
-/* Badges sujet */
-.badge.panne {
+.inline-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Ligne en cours de sauvegarde */
+.row-saving {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ── Badges priorité (calculés depuis type_alerte) ── */
+.badge.prio-haute {
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 700;
+}
+.badge.prio-moyenne {
+  background: #fef3c7;
+  color: #d97706;
+  font-weight: 700;
+}
+.badge.prio-faible,
+.badge.prio-basse {
+  background: #dcfce7;
+  color: #16a34a;
+  font-weight: 700;
+}
+
+[data-theme="dark"] .badge.prio-haute {
+  background: #450a0a;
+  color: #fca5a5;
+}
+[data-theme="dark"] .badge.prio-moyenne {
+  background: #3b1f00;
+  color: #fcd34d;
+}
+[data-theme="dark"] .badge.prio-faible,
+[data-theme="dark"] .badge.prio-basse {
+  background: #052e16;
+  color: #86efac;
+}
+
+/* ── Badges type (colonne Type) ── */
+.badge.type-panne {
   background: #fee2e2;
   color: #dc2626;
 }
-.badge.proposition {
-  background: #dcfce7;
-  color: #16a34a;
+.badge.type-proposition {
+  background: #fed7aa;
+  color: #ea580c;
 }
-.badge.autre {
+.badge.type-autre {
   background: #dbeafe;
   color: #2563eb;
 }
 
-[data-theme="dark"] .badge.panne {
+[data-theme="dark"] .badge.type-panne {
   background: #450a0a;
   color: #fca5a5;
 }
-[data-theme="dark"] .badge.proposition {
-  background: #052e16;
-  color: #86efac;
+[data-theme="dark"] .badge.type-proposition {
+  background: #431407;
+  color: #fb923c;
 }
-[data-theme="dark"] .badge.autre {
+[data-theme="dark"] .badge.type-autre {
   background: #172554;
   color: #93c5fd;
 }
 
-/* Badge statut nouveau */
-.status-badge.nouveau {
+/* ── Badges statut ── */
+.badge.statut-nouveau {
   background: #f3f4f6;
   color: #6b7280;
+}
+.badge.statut-en_cours {
+  background: #dbeafe;
+  color: #2563eb;
+}
+.badge.statut-traite {
+  background: #dcfce7;
+  color: #16a34a;
+  font-weight: 700;
+}
+.badge.statut-resolue {
+  background: #dcfce7;
+  color: #16a34a;
+}
+.badge.statut-annulee {
+  background: #fef9c3;
+  color: #92400e;
+}
+
+[data-theme="dark"] .badge.statut-nouveau {
+  background: #374151;
+  color: #d1d5db;
+}
+[data-theme="dark"] .badge.statut-en_cours {
+  background: #172554;
+  color: #93c5fd;
+}
+[data-theme="dark"] .badge.statut-traite {
+  background: #052e16;
+  color: #86efac;
+}
+[data-theme="dark"] .badge.statut-resolue {
+  background: #052e16;
+  color: #86efac;
+}
+[data-theme="dark"] .badge.statut-annulee {
+  background: #3b2407;
+  color: #fcd34d;
+}
+
+/* Helpers tableau */
+.empty-row {
+  text-align: center;
+  padding: 30px;
+  color: var(--muted);
+}
+.text-muted-sm {
+  color: var(--muted);
+  font-size: 13px;
+}
+.date-cell {
+  white-space: nowrap;
+  font-size: 13px;
 }
 
 [data-theme="dark"] .status-badge.nouveau {
@@ -492,6 +637,299 @@
   box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.1);
 }
 
+/* Champs lecture seule dans le modal modifier */
+.form-input-readonly {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--hover);
+  color: var(--muted);
+  font-size: 14px;
+  font-family: "Poppins", sans-serif;
+  cursor: default;
+  box-sizing: border-box;
+}
+
+.form-input-readonly.priorite {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.label-auto {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+/* Badge statut traitée */
+.badge.statut-traitee {
+  background: #dcfce7;
+  color: #16a34a;
+  font-weight: 700;
+}
+[data-theme="dark"] .badge.statut-traitee {
+  background: #052e16;
+  color: #86efac;
+}
+
+/* Badge statut annulée */
+.badge.statut-annulee {
+  background: #fef9c3;
+  color: #92400e;
+}
+[data-theme="dark"] .badge.statut-annulee {
+  background: #3b2407;
+  color: #fcd34d;
+}
+
+/* ── Base badge ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── Mode tabs (En cours / Historique) ── */
+.mode-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0;
+}
+
+.mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+  font-family: "Poppins", sans-serif;
+}
+
+.mode-tab:hover {
+  color: var(--text);
+}
+
+.mode-tab.active {
+  color: var(--green);
+  border-bottom-color: var(--green);
+}
+
+.mode-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mode-tab-count.resolved {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+[data-theme="dark"] .mode-tab-count {
+  background: #172554;
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .mode-tab-count.resolved {
+  background: #052e16;
+  color: #86efac;
+}
+
+/* ── Bouton "Traiter" (tech only) ── */
+.btn-traiter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, transform 0.15s;
+  font-family: "Poppins", sans-serif;
+}
+
+.btn-traiter:hover:not(:disabled) {
+  background: #16a34a;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-traiter:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+[data-theme="dark"] .btn-traiter {
+  background: #052e16;
+  color: #86efac;
+}
+
+[data-theme="dark"] .btn-traiter:hover:not(:disabled) {
+  background: #16a34a;
+  color: #fff;
+}
+
+/* ── Ligne cliquable ── */
+.alert-table tbody tr.row-clickable {
+  cursor: pointer;
+}
+
+.alert-table tbody tr.row-clickable:hover {
+  background: var(--hover);
+}
+
+/* ── Badge "Ma tâche" (tech assigné) ── */
+.badge-assigned {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  background: #dbeafe;
+  color: #2563eb;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .badge-assigned {
+  background: #172554;
+  color: #93c5fd;
+}
+
+/* ── Inputs / selects / textarea dans le panneau formulaire ── */
+.alert-form-panel .form-group {
+  margin-bottom: 16px;
+}
+
+.alert-form-panel .form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.alert-form-panel .form-group input,
+.alert-form-panel .form-group select,
+.alert-form-panel .form-group textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 14px;
+  font-family: "Poppins", sans-serif;
+  transition: var(--transition);
+  box-sizing: border-box;
+}
+
+.alert-form-panel .form-group input:focus,
+.alert-form-panel .form-group select:focus,
+.alert-form-panel .form-group textarea:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.1);
+}
+
+/* ── Formulaire soumission alerte (entreprise) ── */
+.alert-form-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.alert-form-panel h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-form-panel h3 i {
+  color: #e74c3c;
+}
+
+.alert-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.alert-form .form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.required {
+  color: #e74c3c;
+}
+
+/* ── Bouton primaire (standalone) ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: "Poppins", sans-serif;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--green-dark);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .alert-header {
@@ -534,5 +972,9 @@
   .alert-detail-modal,
   .alert-edit-modal {
     width: 95%;
+  }
+
+  .alert-form .form-row {
+    grid-template-columns: 1fr;
   }
 }

@@ -478,3 +478,49 @@
     justify-content: center;
   }
 }
+
+/* ── Role toggle (Admin) ── */
+.cr-role-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.cr-role-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: "Poppins", sans-serif;
+}
+
+.cr-role-btn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.cr-role-btn.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+[data-theme="dark"] .cr-role-btn {
+  background: var(--panel);
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+[data-theme="dark"] .cr-role-btn.active {
+  background: var(--green);
+  color: #fff;
+}
