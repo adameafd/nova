@@ -142,6 +142,19 @@ router.post("/:id/prendre", async (req, res) => {
     );
     console.log(`[POST /alertes/${id}/prendre] STEP 3 OK — intervention_id=${intResult.insertId}`);
 
+    // Notification broadcast — admin et autres voient que l'alerte est prise
+    try {
+      await createNotif({
+        user_id: null,
+        type: 'INTERVENTION',
+        title: `Alerte #${id} prise en charge`,
+        message: `Intervention #${intResult.insertId} créée automatiquement suite à la prise en charge de l'alerte #${id}.`,
+        link: 'interventions',
+      });
+    } catch (notifErr) {
+      console.error("[notif] Erreur notif prendre:", notifErr.message);
+    }
+
     return res.json({
       message: "Alerte prise en charge",
       alerte,
@@ -180,6 +193,22 @@ router.patch("/:id/statut", async (req, res) => {
        WHERE a.id = ?`,
       [id]
     );
+
+    // Notification broadcast pour les statuts significatifs
+    if (['resolue', 'traitee', 'annulee'].includes(statut)) {
+      try {
+        const labels = { resolue: 'résolue', traitee: 'traitée', annulee: 'annulée' };
+        await createNotif({
+          user_id: null,
+          type: 'ALERTE',
+          title: `Alerte #${id} ${labels[statut]}`,
+          message: `L'alerte externe #${id} a été marquée comme ${labels[statut]}.`,
+          link: 'alertes',
+        });
+      } catch (notifErr) {
+        console.error("[notif] Erreur notif statut alerte:", notifErr.message);
+      }
+    }
 
     return res.json({ message: "Statut mis à jour", alerte: rows[0] || null });
   } catch (err) {
@@ -352,6 +381,22 @@ router.patch("/interne/:id", async (req, res) => {
        WHERE a.id = ?`,
       [id]
     );
+    // Notification broadcast quand une alerte interne change de statut
+    if (['traitee', 'annulee'].includes(statut)) {
+      try {
+        const labels = { traitee: 'traitée', annulee: 'annulée' };
+        await createNotif({
+          user_id: null,
+          type: 'ALERTE_INTERNE',
+          title: `Alerte interne #${id} ${labels[statut]}`,
+          message: `L'alerte interne #${id} a été marquée comme ${labels[statut]}.`,
+          link: 'alertes-internes',
+        });
+      } catch (notifErr) {
+        console.error("[notif] Erreur notif interne statut:", notifErr.message);
+      }
+    }
+
     return res.json(rows[0] || { message: "Mis à jour" });
   } catch (err) {
     console.error("[PATCH /alertes/interne] ERREUR:", err.message);

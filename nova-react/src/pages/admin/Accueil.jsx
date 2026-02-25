@@ -74,16 +74,30 @@ export default function AdminAccueil() {
     loadNotifications();
   }, [API_BASE, loadNotifications]);
 
-  // Écoute temps réel des changements de statut via Socket.IO
+  // Écoute temps réel : statuts utilisateurs + nouvelles notifications
   useEffect(() => {
     const socket = getSocket();
+
     const onStatusUpdate = ({ userId, statut }) => {
       setUsers(prev => prev.map(u =>
         u.id === userId ? { ...u, statut_activite: statut } : u
       ));
     };
+
+    const onNewNotif = (notif) => {
+      setNotifications(prev => {
+        if (prev.some(n => n.id === notif.id)) return prev;
+        return [notif, ...prev].slice(0, 10);
+      });
+    };
+
     socket.on('users:status_update', onStatusUpdate);
-    return () => socket.off('users:status_update', onStatusUpdate);
+    socket.on('notification:new',    onNewNotif);
+
+    return () => {
+      socket.off('users:status_update', onStatusUpdate);
+      socket.off('notification:new',    onNewNotif);
+    };
   }, []);
 
   // Polling 15s

@@ -146,10 +146,12 @@ router.patch("/:id", async (req, res, next) => {
       [id]
     );
 
-    res.json(rows[0]);
+    const updatedIntv = rows[0];
+    res.json(updatedIntv);
 
-    // Sync alerte liée si l'intervention est résolue ou annulée
+    // Sync alerte liée + notification si statut significatif
     if (statut && ['resolue', 'annulee'].includes(statut)) {
+      // Sync alerte liée
       try {
         const [intRows] = await db.query(
           "SELECT alerte_id, technicien_id FROM interventions WHERE id=?",
@@ -165,6 +167,22 @@ router.patch("/:id", async (req, res, next) => {
         }
       } catch (syncErr) {
         console.error("[interventions] Erreur sync alerte:", syncErr.message);
+      }
+
+      // Notification broadcast
+      try {
+        const labels = { resolue: 'résolue', annulee: 'annulée' };
+        const titre  = updatedIntv?.titre || `#${id}`;
+        const techNom = updatedIntv?.technicien_nom || 'technicien';
+        await createNotif({
+          user_id: null,
+          type: 'INTERVENTION',
+          title: `Intervention ${labels[statut]} : ${titre}`,
+          message: `${techNom} a marqué l'intervention "${titre}" comme ${labels[statut]}.`,
+          link: 'interventions',
+        });
+      } catch (notifErr) {
+        console.error("[notif] Erreur notif intervention statut:", notifErr.message);
       }
     }
   } catch (err) {
