@@ -1,0 +1,308 @@
+/* ============================================================
+   NOVA — Mobile Responsive
+   Import AFTER global.css in main.jsx
+   Breakpoints: 768px (mobile) | 480px (small mobile)
+   Desktop layout is never touched (no min-width rules here).
+   ============================================================ */
+
+/* ── Sidebar overlay (all sizes, controlled via JS class) ─── */
+.sidebar-overlay {
+  display: none;
+}
+
+body.sidebar-open .sidebar-overlay {
+  display: block;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 49; /* below sidebar (50), above content */
+  cursor: pointer;
+}
+
+body.sidebar-open {
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE — max-width: 768px
+══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── Touch targets ────────────────────────────────────── */
+  button,
+  .btn,
+  [role="button"] {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Sidebar nav links */
+  .navigation .menu li a {
+    min-height: 44px;
+  }
+
+  /* ── Form inputs: prevent iOS zoom (< 16px triggers it) ─ */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* ── Tables: horizontal scroll ────────────────────────── */
+  .alert-table,
+  .users-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* Table inside interventions — target via container */
+  .interventions-container table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    min-width: 600px;
+  }
+
+  /* Stock table */
+  .stock-container table,
+  .stock-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* Allow table cells to wrap text again (only header is nowrap) */
+  .alert-table td,
+  .users-table td,
+  .interventions-container td {
+    white-space: normal;
+  }
+
+  /* ── Stats grid: 2 columns ────────────────────────────── */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px;
+  }
+
+  .stat-value {
+    font-size: 26px;
+  }
+
+  /* ── Alert tabs: horizontal scroll instead of stacking ── */
+  .alertes-switch {
+    flex-direction: row !important;
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  .alertes-switch::-webkit-scrollbar {
+    display: none;
+  }
+
+  .switch-btn {
+    width: auto !important;
+    flex-shrink: 0;
+  }
+
+  /* ── Intervention tabs: horizontal scroll ─────────────── */
+  .interventions-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  .interventions-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .interventions-tab {
+    flex-shrink: 0;
+  }
+
+  /* ── IoT dashboard ────────────────────────────────────── */
+  .iot-section {
+    padding: 16px;
+  }
+
+  .iot-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .iot-header-right {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .iot-device-select,
+  .iot-refresh-btn {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .iot-cards {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  /* ── Charts: prevent horizontal overflow ─────────────── */
+  .recharts-wrapper,
+  .recharts-responsive-container {
+    max-width: 100% !important;
+    overflow: hidden;
+  }
+
+  .dashboard-section {
+    overflow-x: hidden;
+  }
+
+  /* ── Confirm modal: bottom sheet ─────────────────────── */
+  .confirm-modal {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    transform: translateY(100%) !important;
+    padding: 28px 20px 32px !important;
+  }
+
+  .confirm-modal.active {
+    transform: translateY(0) !important;
+  }
+
+  /* Alert detail / edit modals: full width */
+  .alert-detail-modal,
+  .alert-edit-modal {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 90vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    overflow-y: auto;
+    transform: translateY(100%) !important;
+  }
+
+  .alert-detail-modal.active,
+  .alert-edit-modal.active {
+    transform: translateY(0) !important;
+  }
+
+  /* Preview modal: full screen */
+  .preview-modal {
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    transform: none !important;
+  }
+
+  .preview-modal.active {
+    transform: none !important;
+  }
+
+  /* ── Toast ────────────────────────────────────────────── */
+  .toast-container {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 16px !important;
+    width: auto !important;
+    min-width: unset !important;
+    max-width: unset !important;
+  }
+
+  /* ── Action button rows in tables ─────────────────────── */
+  .action-btns {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* ── Page section padding ─────────────────────────────── */
+  .page-section,
+  .content-section {
+    padding: 16px;
+  }
+
+  /* ── Search filter bar ────────────────────────────────── */
+  .search-filter-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .search-box {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   SMALL MOBILE — max-width: 480px
+══════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+
+  /* ── Stats: 1 column ──────────────────────────────────── */
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  /* ── IoT cards: 1 column ──────────────────────────────── */
+  .iot-cards {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Tighter page padding ─────────────────────────────── */
+  .alert-container,
+  .interventions-container,
+  .iot-section,
+  .dashboard-section,
+  .page-section,
+  .content-section {
+    padding: 12px;
+  }
+
+  /* ── Modal: more height room ──────────────────────────── */
+  .alert-detail-modal,
+  .alert-edit-modal {
+    max-height: 95vh !important;
+  }
+
+  /* ── Topbar: tighter ──────────────────────────────────── */
+  .topbar {
+    padding: 8px 12px;
+  }
+
+  /* ── Small table action buttons ───────────────────────── */
+  .alert-table .btn-action-sm {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  /* ── Stats value size reduction ───────────────────────── */
+  .stat-value {
+    font-size: 22px;
+  }
+}

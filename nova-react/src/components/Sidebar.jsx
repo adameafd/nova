@@ -42,6 +42,14 @@ const entrepriseMenu = [
 export default function Sidebar({ role = 'admin', collapsed, onToggle, globalSearch }) {
   const location = useLocation();
   const { user, API_BASE } = useAuth();
+
+  // Auto-close sidebar when a link is clicked on mobile
+  // On mobile: collapsed=true means sidebar is open (the .active class makes it visible)
+  const handleLinkClick = () => {
+    if (window.innerWidth <= 768 && collapsed) {
+      onToggle();
+    }
+  };
   const [totalUnread, setTotalUnread] = useState(0);
   const menu = role === 'admin' ? adminMenu : role === 'data' ? dataMenu : role === 'entreprise' ? entrepriseMenu : techMenu;
 
@@ -109,7 +117,7 @@ export default function Sidebar({ role = 'admin', collapsed, onToggle, globalSea
             const isMessagerie = item.key === 'messagerie';
             return (
               <li key={item.key} className={isActive ? 'active' : ''}>
-                <Link to={item.path}>
+                <Link to={item.path} onClick={handleLinkClick}>
                   <span className="icon">
                     <i className={`fa-solid ${item.icon}`}></i>
                     {isMessagerie && totalUnread > 0 && (

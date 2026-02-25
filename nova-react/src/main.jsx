@@ -7,6 +7,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import App from './App.jsx';
 import './css/global.css';
+import './css/responsive.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
