@@ -77,6 +77,13 @@ export default function AdminAccueil() {
   // Écoute temps réel : statuts utilisateurs + nouvelles notifications
   useEffect(() => {
     const socket = getSocket();
+    console.log('[Accueil-admin] socket.connected=', socket.connected, ' id=', socket.id ?? 'pas encore connecté');
+
+    // Si la Sidebar n'a pas encore connecté le socket, on s'en charge ici
+    if (!socket.connected) {
+      console.log('[Accueil-admin] socket non connecté → connect() appelé');
+      socket.connect();
+    }
 
     const onStatusUpdate = ({ userId, statut }) => {
       setUsers(prev => prev.map(u =>
@@ -85,6 +92,7 @@ export default function AdminAccueil() {
     };
 
     const onNewNotif = (notif) => {
+      console.log('[Accueil-admin] ← notification:new reçue :', notif);
       setNotifications(prev => {
         if (prev.some(n => n.id === notif.id)) return prev;
         return [notif, ...prev].slice(0, 10);

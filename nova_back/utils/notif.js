@@ -52,27 +52,39 @@ async function createNotif({ user_id = null, type = 'INFO', title = null, messag
 
   // ── Émission Socket.IO temps réel ───────────────────────────────────
   const io = getIo();
-  if (io && insertId) {
-    const notifData = {
-      id:         insertId,
-      user_id:    targetUserId,
-      type,
-      title:      title   ?? null,
-      message,
-      link:       link    ?? null,
-      is_read:    0,
-      created_at: new Date().toISOString(),
-    };
 
-    if (targetUserId === null) {
-      // Broadcast → tous les clients connectés voient la notif
-      io.emit('notification:new', notifData);
-    } else {
-      // Privée → seulement la room de cet utilisateur
-      io.to(`user_${targetUserId}`).emit('notification:new', notifData);
-    }
+  if (!io) {
+    console.error('[notif] ⚠ getIo() = NULL → socket non initialisé, notification non émise !');
+    return;
+  }
 
-    console.log(`[notif] ✓ Émis socket — type=${type} target=${targetUserId ?? 'broadcast'}`);
+  const clientsCount = io.engine?.clientsCount ?? '?';
+  console.log(`[notif] getIo() = OK | clients_connectés=${clientsCount} | insertId=${insertId}`);
+
+  if (!insertId) {
+    console.error('[notif] ⚠ insertId manquant → emit annulé');
+    return;
+  }
+
+  const notifData = {
+    id:         insertId,
+    user_id:    targetUserId,
+    type,
+    title:      title   ?? null,
+    message,
+    link:       link    ?? null,
+    is_read:    0,
+    created_at: new Date().toISOString(),
+  };
+
+  if (targetUserId === null) {
+    // Broadcast → tous les clients connectés voient la notif
+    io.emit('notification:new', notifData);
+    console.log(`[notif] ✓ BROADCAST notification:new id=${insertId} type=${type} | ${clientsCount} client(s)`);
+  } else {
+    // Privée → seulement la room de cet utilisateur
+    io.to(`user_${targetUserId}`).emit('notification:new', notifData);
+    console.log(`[notif] ✓ PRIVÉE notification:new id=${insertId} type=${type} → room=user_${targetUserId}`);
   }
 }
 

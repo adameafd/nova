@@ -20,6 +20,7 @@ app.locals.io = io;
 
 // Expose io au module notif.js pour les émissions temps réel
 require('./utils/socket').setIo(io);
+console.log('[socket] io set OK — instance prête pour les notifications temps réel');
 
 // uid (string) → socketId
 const onlineUsers = new Map();
@@ -37,13 +38,15 @@ async function setStatut(uid, statut) {
 }
 
 io.on("connection", (socket) => {
-  console.log("Socket connected:", socket.id);
+  const total = io.engine.clientsCount;
+  console.log(`[socket] ← CONNECT  id=${socket.id}  total_clients=${total}`);
 
   // ── Connexion utilisateur ─────────────────────────────────────────────
   socket.on("user:join", async (userId) => {
     const uid = String(userId);
     socket.join(`user_${uid}`);
     onlineUsers.set(uid, socket.id);
+    console.log(`[socket] user:join userId=${uid} → room=user_${uid}  socketId=${socket.id}`);
 
     // Mise à jour DB
     await setStatut(uid, "en_ligne");
@@ -86,7 +89,8 @@ io.on("connection", (socket) => {
   });
 
   // ── Déconnexion ───────────────────────────────────────────────────────
-  socket.on("disconnect", async () => {
+  socket.on("disconnect", async (reason) => {
+    console.log(`[socket] → DISCONNECT id=${socket.id}  reason=${reason}`);
     let uid = null;
     for (const [id, sid] of onlineUsers.entries()) {
       if (sid === socket.id) {

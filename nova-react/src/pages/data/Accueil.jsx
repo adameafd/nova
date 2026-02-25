@@ -73,6 +73,12 @@ export default function DataAccueil() {
   // Écoute temps réel : statuts utilisateurs + nouvelles notifications
   useEffect(() => {
     const socket = getSocket();
+    console.log('[Accueil-data] socket.connected=', socket.connected, ' id=', socket.id ?? 'pas encore connecté');
+
+    if (!socket.connected) {
+      console.log('[Accueil-data] socket non connecté → connect() appelé');
+      socket.connect();
+    }
 
     const onStatusUpdate = ({ userId, statut }) => {
       setUsers(prev => prev.map(u =>
@@ -81,6 +87,7 @@ export default function DataAccueil() {
     };
 
     const onNewNotif = (notif) => {
+      console.log('[Accueil-data] ← notification:new reçue :', notif);
       setNotifications(prev => {
         if (prev.some(n => n.id === notif.id)) return prev;
         return [notif, ...prev].slice(0, 10);
