@@ -25,7 +25,7 @@ export default function About() {
           </p>
         </div>
         <div className="about-img">
-          <img src={smartcityImg} alt="Smart City NOVA" />
+          <img src={smartcityImg} alt="Smart City NOVA" loading="lazy" />
         </div>
       </section>
 

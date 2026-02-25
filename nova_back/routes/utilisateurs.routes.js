@@ -1,12 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const upload = require("../middlewares/upload");
+const { compressImage } = require("../middlewares/upload");
 const ctrl = require("../controllers/utilisateurs.controller");
 const db = require("../config/db");
 
 router.get("/", ctrl.getAllUsers);
-router.post("/", upload.single("photo"), ctrl.createUser);
-router.put("/:id", upload.single("photo"), ctrl.updateUser);
+router.post("/", upload.single("photo"), compressImage, ctrl.createUser);
+router.put("/:id", upload.single("photo"), compressImage, ctrl.updateUser);
 router.delete("/:id", ctrl.deleteUser);
 
 router.get("/techniciens", async (req, res) => {
