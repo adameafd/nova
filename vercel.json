@@ -1,8 +1,7 @@
 {
-  "rootDirectory": "nova-react",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
+  "installCommand": "cd nova-react && npm install",
+  "buildCommand": "cd nova-react && npm run build",
+  "outputDirectory": "nova-react/dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
