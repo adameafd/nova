@@ -7,22 +7,24 @@ import '../../css/notifications.css';
 
 // Mapping notif.link → route admin complète
 const LINK_MAP = {
-  messages:        '/admin/messagerie',
-  messagerie:      '/admin/messagerie',
-  stock:           '/admin/stock',
-  'compte-rendu':  '/admin/compte-rendu',
-  alertes:         '/admin/alerts',
-  alerts:          '/admin/alerts',
-  interventions:   '/admin/interventions',
-  dashboard:       '/admin/dashboard',
+  messages:           '/admin/messagerie',
+  messagerie:         '/admin/messagerie',
+  stock:              '/admin/stock',
+  'compte-rendu':     '/admin/compte-rendu',
+  alertes:            '/admin/alerts',
+  alerts:             '/admin/alerts',
+  interventions:      '/admin/interventions',
+  dashboard:          '/admin/dashboard',
+  'alertes-internes': '/admin/alertes-internes',
 };
 
 const TYPE_CONFIG = {
-  COMPTE_RENDU: { icon: 'fa-file-lines', color: '#1abc9c', label: 'Compte rendu' },
-  STOCK:        { icon: 'fa-boxes-stacked', color: '#f39c12', label: 'Stock' },
-  ALERTE:       { icon: 'fa-triangle-exclamation', color: '#e74c3c', label: 'Alerte' },
-  INTERVENTION: { icon: 'fa-wrench', color: '#9b59b6', label: 'Intervention' },
-  INFO:         { icon: 'fa-circle-info', color: '#3498db', label: 'Info' },
+  COMPTE_RENDU:   { icon: 'fa-file-lines',          color: '#1abc9c', label: 'Compte rendu'  },
+  STOCK:          { icon: 'fa-boxes-stacked',        color: '#f39c12', label: 'Stock'          },
+  ALERTE:         { icon: 'fa-triangle-exclamation', color: '#e74c3c', label: 'Alerte'         },
+  ALERTE_INTERNE: { icon: 'fa-circle-exclamation',   color: '#e67e22', label: 'Alerte interne' },
+  INTERVENTION:   { icon: 'fa-wrench',               color: '#9b59b6', label: 'Intervention'   },
+  INFO:           { icon: 'fa-circle-info',          color: '#3498db', label: 'Info'           },
 };
 
 function timeAgo(dateStr) {
@@ -102,6 +104,20 @@ export default function AdminAccueil() {
     navigate(LINK_MAP[notif.link] ?? '/admin');
   }, [API_BASE, navigate]);
 
+  const handleMarkAllRead = useCallback(async () => {
+    try {
+      await fetch(`${API_BASE}/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId }),
+      });
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+    } catch (err) {
+      console.error('[Notifs-admin] Erreur mark-all-read:', err.message);
+    }
+  }, [API_BASE, currentUserId]);
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
   const online  = users.filter(u => u.statut_activite === 'en_ligne');
   const offline = users.filter(u => u.statut_activite !== 'en_ligne');
 
@@ -115,7 +131,15 @@ export default function AdminAccueil() {
       <section className="dashboard-overview">
         <div className="left-panel">
           <div className="notif-widget-header">
-            <h2><i className="fa-solid fa-bell"></i> Dernières notifications</h2>
+            <h2>
+              <i className="fa-solid fa-bell"></i> Dernières notifications
+              {unreadCount > 0 && <span className="notif-unread-count">{unreadCount}</span>}
+            </h2>
+            {unreadCount > 0 && (
+              <button className="notif-mark-all-btn" onClick={handleMarkAllRead}>
+                Tout lire
+              </button>
+            )}
           </div>
           {notifications.length === 0 ? (
             <div className="notif-widget-empty">Aucune notification pour le moment.</div>

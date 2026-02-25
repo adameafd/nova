@@ -7,21 +7,23 @@ import '../../css/notifications.css';
 
 // Routes disponibles pour le rôle tech/technicien
 const LINK_MAP = {
-  messages:         '/tech/messagerie',
-  messagerie:       '/tech/messagerie',
-  stock:            '/tech/stock',
-  alertes:          '/tech/alerts',
-  alerts:           '/tech/alerts',
-  interventions:    '/tech/interventions',
-  'compte-rendu':   '/tech/compte-rendu',
+  messages:           '/tech/messagerie',
+  messagerie:         '/tech/messagerie',
+  stock:              '/tech/stock',
+  alertes:            '/tech/alerts',
+  alerts:             '/tech/alerts',
+  interventions:      '/tech/interventions',
+  'compte-rendu':     '/tech/compte-rendu',
+  'alertes-internes': '/tech/alertes-internes',
 };
 
 const TYPE_CONFIG = {
-  COMPTE_RENDU: { icon: 'fa-file-lines', color: '#1abc9c', label: 'Compte rendu' },
-  STOCK:        { icon: 'fa-boxes-stacked', color: '#f39c12', label: 'Stock' },
-  ALERTE:       { icon: 'fa-triangle-exclamation', color: '#e74c3c', label: 'Alerte' },
-  INTERVENTION: { icon: 'fa-wrench', color: '#9b59b6', label: 'Intervention' },
-  INFO:         { icon: 'fa-circle-info', color: '#3498db', label: 'Info' },
+  COMPTE_RENDU:   { icon: 'fa-file-lines',          color: '#1abc9c', label: 'Compte rendu'  },
+  STOCK:          { icon: 'fa-boxes-stacked',        color: '#f39c12', label: 'Stock'          },
+  ALERTE:         { icon: 'fa-triangle-exclamation', color: '#e74c3c', label: 'Alerte'         },
+  ALERTE_INTERNE: { icon: 'fa-circle-exclamation',   color: '#e67e22', label: 'Alerte interne' },
+  INTERVENTION:   { icon: 'fa-wrench',               color: '#9b59b6', label: 'Intervention'   },
+  INFO:           { icon: 'fa-circle-info',          color: '#3498db', label: 'Info'           },
 };
 
 function timeAgo(dateStr) {
@@ -98,6 +100,23 @@ export default function TechAccueil() {
     navigate(LINK_MAP[notif.link] ?? '/tech');
   }, [API_BASE, navigate]);
 
+  const handleMarkAllRead = useCallback(async () => {
+    try {
+      await fetch(`${API_BASE}/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId }),
+      });
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+    } catch (err) {
+      console.error('[Notifs-tech] Erreur mark-all-read:', err.message);
+    }
+  }, [API_BASE, currentUserId]);
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const online  = users.filter(u => u.statut_activite === 'en_ligne');
+  const offline = users.filter(u => u.statut_activite !== 'en_ligne');
+
   return (
     <>
       <section className="welcome-section">
@@ -108,7 +127,15 @@ export default function TechAccueil() {
       <section className="dashboard-overview">
         <div className="left-panel">
           <div className="notif-widget-header">
-            <h2><i className="fa-solid fa-bell"></i> Dernières notifications</h2>
+            <h2>
+              <i className="fa-solid fa-bell"></i> Dernières notifications
+              {unreadCount > 0 && <span className="notif-unread-count">{unreadCount}</span>}
+            </h2>
+            {unreadCount > 0 && (
+              <button className="notif-mark-all-btn" onClick={handleMarkAllRead}>
+                Tout lire
+              </button>
+            )}
           </div>
           {notifications.length === 0 ? (
             <div className="notif-widget-empty">Aucune notification pour le moment.</div>
@@ -151,14 +178,12 @@ export default function TechAccueil() {
           <div className="user-status connected">
             <h3>
               <i className="fa-solid fa-circle text-green"></i> En ligne
-              {users.filter(u => u.statut_activite === 'en_ligne').length > 0 && (
-                <span className="status-count">{users.filter(u => u.statut_activite === 'en_ligne').length}</span>
-              )}
+              {online.length > 0 && <span className="status-count">{online.length}</span>}
             </h3>
             <ul>
-              {users.filter(u => u.statut_activite === 'en_ligne').length === 0
+              {online.length === 0
                 ? <li className="status-empty">Aucun utilisateur en ligne</li>
-                : users.filter(u => u.statut_activite === 'en_ligne').map(u => (
+                : online.map(u => (
                   <li key={u.id}>
                     <span className="status-dot online"></span>
                     <img src={resolvePhotoUrl(u.photo_url)} alt="" />
@@ -172,14 +197,12 @@ export default function TechAccueil() {
           <div className="user-status offline">
             <h3>
               <i className="fa-solid fa-circle text-red"></i> Hors ligne
-              {users.filter(u => u.statut_activite !== 'en_ligne').length > 0 && (
-                <span className="status-count">{users.filter(u => u.statut_activite !== 'en_ligne').length}</span>
-              )}
+              {offline.length > 0 && <span className="status-count">{offline.length}</span>}
             </h3>
             <ul>
-              {users.filter(u => u.statut_activite !== 'en_ligne').length === 0
+              {offline.length === 0
                 ? <li className="status-empty">Aucun</li>
-                : users.filter(u => u.statut_activite !== 'en_ligne').map(u => (
+                : offline.map(u => (
                   <li key={u.id}>
                     <span className="status-dot offline"></span>
                     <img src={resolvePhotoUrl(u.photo_url)} alt="" />
