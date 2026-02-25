@@ -14,6 +14,9 @@ router.get("/", async (req, res, next) => {
              i.priorite,
              i.statut,
              i.unite,
+             i.source_type,
+             i.alerte_id,
+             i.assigned_at,
              i.date_creation,
              i.date_maj,
              u.id  AS technicien_id,
@@ -144,6 +147,26 @@ router.patch("/:id", async (req, res, next) => {
     );
 
     res.json(rows[0]);
+
+    // Sync alerte liée si l'intervention est résolue ou annulée
+    if (statut && ['resolue', 'annulee'].includes(statut)) {
+      try {
+        const [intRows] = await db.query(
+          "SELECT alerte_id, technicien_id FROM interventions WHERE id=?",
+          [id]
+        );
+        const intv = intRows[0];
+        if (intv?.alerte_id) {
+          const alerteStatut = statut === 'resolue' ? 'traitee' : 'annulee';
+          await db.query(
+            "UPDATE alertes SET statut=?, traite_par=?, date_mise_a_jour=NOW() WHERE id=?",
+            [alerteStatut, intv.technicien_id, intv.alerte_id]
+          );
+        }
+      } catch (syncErr) {
+        console.error("[interventions] Erreur sync alerte:", syncErr.message);
+      }
+    }
   } catch (err) {
     next(err);
   }

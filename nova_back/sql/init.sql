@@ -95,9 +95,13 @@ CREATE TABLE IF NOT EXISTS interventions (
   statut ENUM('en_attente', 'en_cours', 'resolue', 'annulee') DEFAULT 'en_attente',
   unite VARCHAR(100) DEFAULT NULL,
   technicien_id INT NOT NULL,
+  source_type ENUM('manuelle','alerte') NOT NULL DEFAULT 'manuelle',
+  alerte_id INT NULL DEFAULT NULL,
+  assigned_at DATETIME NULL DEFAULT NULL,
   date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   date_maj TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (technicien_id) REFERENCES utilisateurs(id) ON DELETE CASCADE
+  FOREIGN KEY (technicien_id) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+  INDEX idx_interventions_alerte_id (alerte_id)
 );
 
 -- Internal alerts (between employees)
@@ -168,6 +172,21 @@ ALTER TABLE alertes
 -- ============================================
 ALTER TABLE utilisateurs
   MODIFY COLUMN role ENUM('admin', 'technicien', 'data', 'entreprise') NOT NULL DEFAULT 'technicien';
+
+-- ============================================
+-- Migration : workflow alerte → intervention
+-- À exécuter UNE FOIS sur une DB existante
+-- ============================================
+ALTER TABLE alertes
+  ADD COLUMN IF NOT EXISTS assigned_at DATETIME NULL DEFAULT NULL;
+
+ALTER TABLE interventions
+  ADD COLUMN IF NOT EXISTS source_type ENUM('manuelle','alerte') NOT NULL DEFAULT 'manuelle',
+  ADD COLUMN IF NOT EXISTS alerte_id   INT NULL DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS assigned_at DATETIME NULL DEFAULT NULL;
+
+ALTER TABLE interventions
+  ADD INDEX IF NOT EXISTS idx_interventions_alerte_id (alerte_id);
 
 -- ============================================
 -- Default admin user (password: admin123)

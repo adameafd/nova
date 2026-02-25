@@ -44,6 +44,72 @@
   box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.1);
 }
 
+/* Badge source alerte */
+.badge-alerte-src {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f97316;
+  color: #fff;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* Bouton Prendre */
+.btn-prendre {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: var(--success, #22c55e);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-prendre:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Onglets En cours / Historique */
+.interventions-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.interventions-tab {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition);
+}
+.interventions-tab.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.interventions-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.25);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 @media (max-width: 768px) {
   .interventions-header {
     flex-direction: column;

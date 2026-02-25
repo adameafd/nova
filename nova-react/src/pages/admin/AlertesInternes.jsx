@@ -325,7 +325,6 @@ export default function AdminAlertesInternes() {
                   className={`row-clickable${isSaving ? ' row-saving' : ''}`}
                   onClick={() => setViewAlert(a)}
                 >
-                  {/* Créé par : nom + badge rôle */}
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <span>{cap(a.createur_nom || a.nom_demandeur)}</span>
@@ -336,18 +335,13 @@ export default function AdminAlertesInternes() {
                       )}
                     </div>
                   </td>
-
                   <td className="message-cell" title={a.categorie}>{a.categorie || '-'}</td>
-
                   <td>
                     <span className={`badge prio-${a.priorite || 'basse'}`}>
                       {getPrioLabel(a.priorite)}
                     </span>
                   </td>
-
                   <td className="message-cell" title={a.description}>{a.description || '-'}</td>
-
-                  {/* Statut — select inline pour toutes les alertes (admin) */}
                   <td onClick={e => e.stopPropagation()}>
                     {isHistorique ? (
                       <span className={`badge statut-${a.statut || ''}`}>
@@ -366,11 +360,9 @@ export default function AdminAlertesInternes() {
                       </select>
                     )}
                   </td>
-
                   <td className="date-cell">
                     {dateVal ? new Date(dateVal).toLocaleDateString('fr-FR') : '-'}
                   </td>
-
                   {!isHistorique && (
                     <td onClick={e => e.stopPropagation()}>
                       <div className="action-btns">

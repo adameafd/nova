@@ -13,17 +13,143 @@ router.patch("/:id/assign", async (req, res) => {
   const { technicien_id } = req.body;
 
   try {
-    await db.query(
-      "UPDATE alertes SET technicien_id = ?, date_mise_a_jour = NOW() WHERE id = ?",
-      [technicien_id || null, id]
+    if (technicien_id) {
+      // Assignation : met à jour l'alerte
+      await db.query(
+        "UPDATE alertes SET technicien_id=?, statut='en_cours', assigned_at=NOW(), date_mise_a_jour=NOW() WHERE id=?",
+        [technicien_id, id]
+      );
+
+      // Récupère les détails de l'alerte pour construire l'intervention
+      const [alerteRows] = await db.query("SELECT * FROM alertes WHERE id=?", [id]);
+      const alerte = alerteRows[0];
+
+      // Vérifie si une intervention liée existe déjà
+      const [existingIntv] = await db.query(
+        "SELECT id FROM interventions WHERE alerte_id=? AND source_type='alerte'",
+        [id]
+      );
+
+      if (existingIntv.length === 0) {
+        // Crée une nouvelle intervention liée
+        await db.query(
+          `INSERT INTO interventions (titre, description, priorite, statut, technicien_id, source_type, alerte_id, assigned_at)
+           VALUES (?, ?, ?, 'en_cours', ?, 'alerte', ?, NOW())`,
+          [
+            `Alerte externe #${id}`,
+            alerte?.description || `Alerte externe #${id}`,
+            alerte?.priorite || 'moyenne',
+            technicien_id,
+            id,
+          ]
+        );
+      } else {
+        // Met à jour le technicien de l'intervention existante
+        await db.query(
+          "UPDATE interventions SET technicien_id=? WHERE alerte_id=? AND source_type='alerte'",
+          [technicien_id, id]
+        );
+      }
+
+      // Notification privée pour le technicien
+      try {
+        await createNotif({
+          user_id: Number(technicien_id),
+          type: 'ALERTE',
+          title: `Alerte externe assignée #${id}`,
+          message: `Une alerte externe vous a été assignée. ${(alerte?.description || '').substring(0, 100)}`,
+          link: 'alertes',
+        });
+      } catch (notifErr) {
+        console.error("[notif] Erreur notif assign alerte:", notifErr.message);
+      }
+    } else {
+      // Désassignation
+      await db.query(
+        "UPDATE alertes SET technicien_id=NULL, statut='nouveau', assigned_at=NULL, date_mise_a_jour=NOW() WHERE id=?",
+        [id]
+      );
+      await db.query(
+        "DELETE FROM interventions WHERE alerte_id=? AND source_type='alerte' AND statut NOT IN ('resolue','annulee')",
+        [id]
+      );
+    }
+
+    // Retourne l'alerte complète pour que le front puisse se synchroniser (statut inclus)
+    const [updatedRows] = await db.query(
+      `SELECT a.*, u.nom AS technicien_nom
+       FROM alertes a
+       LEFT JOIN utilisateurs u ON u.id = a.technicien_id
+       WHERE a.id = ?`,
+      [id]
     );
 
-    return res.json({ message: "Technicien assigné", id, technicien_id });
+    return res.json({ message: "Technicien assigné", alerte: updatedRows[0] || null });
   } catch (err) {
     console.error("Erreur assignation :", err);
     return res
       .status(500)
       .json({ error: "Erreur serveur interne", detail: err.message });
+  }
+});
+
+// ── POST /alertes/:id/prendre — auto-assignation tech avec contrôle de concurrence ──
+router.post("/:id/prendre", async (req, res) => {
+  const { id } = req.params;
+  const { technicien_id } = req.body;
+
+  if (!technicien_id) {
+    return res.status(400).json({ error: "technicien_id requis" });
+  }
+
+  try {
+    // Verrou optimiste : WHERE technicien_id IS NULL garantit qu'un seul tech gagne
+    console.log(`[POST /alertes/${id}/prendre] STEP 1 — UPDATE alertes`);
+    const [result] = await db.query(
+      "UPDATE alertes SET technicien_id=?, statut='en_cours', assigned_at=NOW(), date_mise_a_jour=NOW() WHERE id=? AND technicien_id IS NULL",
+      [technicien_id, id]
+    );
+    console.log(`[POST /alertes/${id}/prendre] STEP 1 OK — affectedRows=${result.affectedRows}`);
+
+    if (result.affectedRows === 0) {
+      return res.status(409).json({ error: "Alerte déjà prise par un autre technicien." });
+    }
+
+    // Récupère l'alerte mise à jour (avec JOIN pour technicien_nom)
+    console.log(`[POST /alertes/${id}/prendre] STEP 2 — SELECT alerte`);
+    const [alerteRows] = await db.query(
+      `SELECT a.*, u.nom AS technicien_nom
+       FROM alertes a
+       LEFT JOIN utilisateurs u ON u.id = a.technicien_id
+       WHERE a.id=?`,
+      [id]
+    );
+    const alerte = alerteRows[0];
+    console.log(`[POST /alertes/${id}/prendre] STEP 2 OK — alerte:`, alerte?.id, alerte?.statut);
+
+    // Crée l'intervention liée
+    console.log(`[POST /alertes/${id}/prendre] STEP 3 — INSERT interventions`);
+    const [intResult] = await db.query(
+      `INSERT INTO interventions (titre, description, priorite, statut, technicien_id, source_type, alerte_id, assigned_at)
+       VALUES (?, ?, ?, 'en_cours', ?, 'alerte', ?, NOW())`,
+      [
+        `Alerte externe #${id}`,
+        alerte?.description || `Alerte externe #${id}`,
+        alerte?.priorite || 'moyenne',
+        technicien_id,
+        id,
+      ]
+    );
+    console.log(`[POST /alertes/${id}/prendre] STEP 3 OK — intervention_id=${intResult.insertId}`);
+
+    return res.json({
+      message: "Alerte prise en charge",
+      alerte,
+      intervention_id: intResult.insertId,
+    });
+  } catch (err) {
+    console.error(`[POST /alertes/${id}/prendre] ERREUR SQL:`, err.message);
+    return res.status(500).json({ error: "Erreur serveur interne", detail: err.message });
   }
 });
 
