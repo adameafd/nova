@@ -130,7 +130,7 @@ router.post("/", (req, res, next) => {
       res.status(201).json(rows[0]);
     } catch (err) {
       console.error("[comptes-rendus] POST erreur :", err.code, err.message);
-      if (err.code === "42P01") {
+      if (err.code === "ER_NO_SUCH_TABLE") {
         return res.status(500).json({
           message: "Table 'comptes_rendus' introuvable. Executez la migration SQL.",
         });

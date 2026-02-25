@@ -64,7 +64,7 @@ router.post("/", async (req, res, next) => {
       );
     } catch (sqlErr) {
       // Fallback sans title
-      if (sqlErr.code === "42703") {
+      if (sqlErr.code === "ER_BAD_FIELD_ERROR") {
         [result] = await db.query(
           "INSERT INTO notifications (user_id, type, message, link) VALUES (?, ?, ?, ?)",
           [user_id || null, type || "INFO", message, link || null]
