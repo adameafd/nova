@@ -36,7 +36,7 @@ async function createNotif({ user_id = null, type = 'INFO', title = null, messag
     insertId = result.insertId;
     console.log(`[notif] ✓ Créée id=${insertId} — type=${type} user_id=${targetUserId ?? 'NULL(broadcast)'}`);
   } catch (err) {
-    if (err.code === 'ER_BAD_FIELD_ERROR') {
+    if (err.code === '42703') {
       // Fallback sans title/link si colonnes absentes
       console.warn('[notif] Fallback colonnes de base :', err.message);
       const [result] = await pool.query(
