@@ -1,25 +1,33 @@
 import { io } from 'socket.io-client';
 import { ORIGIN } from './context/AuthContext';
 
+// ── LOG MODULE : doit apparaître en console dès le chargement de la page ──
+console.log('[socket.js] MODULE CHARGÉ — ORIGIN =', ORIGIN);
+
 let socket = null;
 
 /**
- * Singleton : une seule connexion socket.io partagée
- * entre Sidebar, Accueil et Messagerie.
+ * Singleton socket.io-client.
+ * Le socket est créé une seule fois avec autoConnect:false.
+ * La connexion est déclenchée par Sidebar (socket.connect() + user:join).
  */
 export function getSocket() {
   if (!socket) {
-    console.log('[socket] Création singleton — ORIGIN=', ORIGIN);
-    socket = io(ORIGIN, { autoConnect: false });
+    console.log('[socket.js] getSocket() — création de l\'instance');
+    socket = io(ORIGIN, {
+      autoConnect:       false,
+      transports:        ['websocket', 'polling'], // essaie WebSocket en premier
+      withCredentials:   true,
+    });
 
     socket.on('connect', () =>
-      console.log('[socket] ✓ CONNECTED  id=', socket.id, ' url=', ORIGIN)
+      console.log('[socket.js] ✓ CONNECTED  id =', socket.id, '  url =', ORIGIN)
     );
     socket.on('disconnect', (reason) =>
-      console.log('[socket] ✗ DISCONNECTED  reason=', reason)
+      console.log('[socket.js] ✗ DISCONNECTED  reason =', reason)
     );
     socket.on('connect_error', (err) =>
-      console.error('[socket] ✗ CONNECT_ERROR:', err.message)
+      console.error('[socket.js] ✗ CONNECT_ERROR:', err.message, '— URL tentée =', ORIGIN)
     );
   }
   return socket;

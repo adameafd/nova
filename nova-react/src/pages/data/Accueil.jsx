@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, resolvePhotoUrl } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { getSocket } from '../../socket';
 import '../../css/accueil.css';
 import '../../css/notifications.css';
@@ -24,12 +25,12 @@ const TYPE_CONFIG = {
 };
 
 function timeAgo(dateStr) {
-  const now = new Date();
+  const now  = new Date();
   const date = new Date(dateStr);
   const diff = Math.floor((now - date) / 1000);
-  if (diff < 60) return "A l'instant";
-  if (diff < 3600) return `${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  if (diff < 60)     return "A l'instant";
+  if (diff < 3600)   return `${Math.floor(diff / 60)} min`;
+  if (diff < 86400)  return `${Math.floor(diff / 3600)}h`;
   if (diff < 604800) return `${Math.floor(diff / 86400)}j`;
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
@@ -37,48 +38,17 @@ function timeAgo(dateStr) {
 export default function DataAccueil() {
   const { user, API_BASE } = useAuth();
   const navigate = useNavigate();
+  const { notifications, setNotifications, unreadCount, markAllRead } = useNotifications();
   const [users, setUsers] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const currentUserId = Number(user?.id);
-
-  const loadNotifications = useCallback(async () => {
-    if (!currentUserId) {
-      console.warn('[Notifs-data] userId invalide, fetch ignoré', currentUserId);
-      return;
-    }
-    try {
-      const url = `${API_BASE}/notifications/latest?userId=${currentUserId}&limit=10`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error('[Notifs-data] Erreur serveur', res.status, err);
-        return;
-      }
-      const data = await res.json();
-      console.log('[Notifs-data] Reçu', data.length, 'notification(s)');
-      setNotifications(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('[Notifs-data] Erreur fetch:', err.message);
-    }
-  }, [API_BASE, currentUserId]);
 
   useEffect(() => {
     fetch(`${API_BASE}/utilisateurs`)
       .then(r => r.json())
       .then(data => setUsers(Array.isArray(data) ? data : []))
       .catch(() => setUsers([]));
-    loadNotifications();
-  }, [API_BASE, loadNotifications]);
 
-  // Écoute temps réel : statuts utilisateurs + nouvelles notifications
-  useEffect(() => {
     const socket = getSocket();
-    console.log('[Accueil-data] socket.connected=', socket.connected, ' id=', socket.id ?? 'pas encore connecté');
-
-    if (!socket.connected) {
-      console.log('[Accueil-data] socket non connecté → connect() appelé');
-      socket.connect();
-    }
+    console.log('[Accueil-data] monté | socket.connected =', socket.connected, ' | socketId =', socket.id ?? 'n/a');
 
     const onStatusUpdate = ({ userId, statut }) => {
       setUsers(prev => prev.map(u =>
@@ -86,53 +56,20 @@ export default function DataAccueil() {
       ));
     };
 
-    const onNewNotif = (notif) => {
-      console.log('[Accueil-data] ← notification:new reçue :', notif);
-      setNotifications(prev => {
-        if (prev.some(n => n.id === notif.id)) return prev;
-        return [notif, ...prev].slice(0, 10);
-      });
-    };
-
     socket.on('users:status_update', onStatusUpdate);
-    socket.on('notification:new',    onNewNotif);
-
-    return () => {
-      socket.off('users:status_update', onStatusUpdate);
-      socket.off('notification:new',    onNewNotif);
-    };
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(loadNotifications, 15000);
-    return () => clearInterval(interval);
-  }, [loadNotifications]);
+    return () => socket.off('users:status_update', onStatusUpdate);
+  }, [API_BASE]);
 
   const handleVoir = useCallback(async (notif) => {
     setNotifications(prev => prev.filter(n => n.id !== notif.id));
     try {
-      const res = await fetch(`${API_BASE}/notifications/${notif.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await fetch(`${API_BASE}/notifications/${notif.id}`, { method: 'DELETE' });
     } catch (err) {
-      console.error('[Notifs-data] Erreur suppression notif:', err.message);
+      console.error('[Accueil-data] Erreur suppression notif:', err.message);
     }
     navigate(LINK_MAP[notif.link] ?? '/data');
-  }, [API_BASE, navigate]);
+  }, [API_BASE, navigate, setNotifications]);
 
-  const handleMarkAllRead = useCallback(async () => {
-    try {
-      await fetch(`${API_BASE}/notifications/mark-all-read`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUserId }),
-      });
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
-    } catch (err) {
-      console.error('[Notifs-data] Erreur mark-all-read:', err.message);
-    }
-  }, [API_BASE, currentUserId]);
-
-  const unreadCount = notifications.filter(n => !n.is_read).length;
   const online  = users.filter(u => u.statut_activite === 'en_ligne');
   const offline = users.filter(u => u.statut_activite !== 'en_ligne');
 
@@ -151,11 +88,12 @@ export default function DataAccueil() {
               {unreadCount > 0 && <span className="notif-unread-count">{unreadCount}</span>}
             </h2>
             {unreadCount > 0 && (
-              <button className="notif-mark-all-btn" onClick={handleMarkAllRead}>
+              <button className="notif-mark-all-btn" onClick={markAllRead}>
                 Tout lire
               </button>
             )}
           </div>
+
           {notifications.length === 0 ? (
             <div className="notif-widget-empty">Aucune notification pour le moment.</div>
           ) : (
