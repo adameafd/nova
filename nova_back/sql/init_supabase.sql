@@ -191,63 +191,48 @@ CREATE INDEX IF NOT EXISTS idx_capteur_time ON releves_capteurs(capteur_id, time
 CREATE INDEX IF NOT EXISTS idx_type_time    ON releves_capteurs(type_mesure, timestamp);
 
 -- ── 11. Tables IoT telemetry ─────────────────────────────────────────────────
+-- Schéma correspondant à telemetry.controller.js (mesures / supercap / batterie / systeme)
+
 CREATE TABLE IF NOT EXISTS devices (
-  id               SERIAL       PRIMARY KEY,
-  device_id        VARCHAR(100) NOT NULL UNIQUE,
-  firmware_version VARCHAR(50)  DEFAULT NULL,
-  first_seen       TIMESTAMP    DEFAULT NOW(),
-  last_seen        TIMESTAMP    DEFAULT NOW()
+  id         SERIAL       PRIMARY KEY,
+  device_id  VARCHAR(100) NOT NULL UNIQUE,
+  firmware   VARCHAR(50)  DEFAULT NULL,
+  created_at TIMESTAMP    DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_devices_device_id ON devices(device_id);
+CREATE INDEX IF NOT EXISTS idx_device_id ON devices(device_id);
 
-CREATE TABLE IF NOT EXISTS telemetry (
-  id          BIGSERIAL    PRIMARY KEY,
-  device_id   VARCHAR(100) NOT NULL,
-  ts_ms       BIGINT       NOT NULL,
-  raw_payload JSONB        DEFAULT NULL,
-  created_at  TIMESTAMP    DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS mesures (
+  id           BIGSERIAL    PRIMARY KEY,
+  device_id    VARCHAR(100) NOT NULL,
+  timestamp_ms BIGINT       NOT NULL,
+  created_at   TIMESTAMP    DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_telemetry_device_ts      ON telemetry(device_id, ts_ms);
-CREATE INDEX IF NOT EXISTS idx_telemetry_device_created ON telemetry(device_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_telemetry_created        ON telemetry(created_at);
+CREATE INDEX IF NOT EXISTS idx_mesures_device_ts      ON mesures(device_id, timestamp_ms);
+CREATE INDEX IF NOT EXISTS idx_mesures_device_created ON mesures(device_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_mesures_created        ON mesures(created_at);
 
-CREATE TABLE IF NOT EXISTS energy (
-  id                  BIGSERIAL     PRIMARY KEY,
-  telemetry_id        BIGINT        NOT NULL REFERENCES telemetry(id) ON DELETE CASCADE,
-  device_id           VARCHAR(100)  NOT NULL,
-  ts_ms               BIGINT        NOT NULL,
-  provided_J          DECIMAL(10,4) DEFAULT NULL,
-  supercap_voltage_V  DECIMAL(6,4)  DEFAULT NULL,
-  supercap_capacity_F DECIMAL(6,2)  DEFAULT NULL,
-  ltc3588_output_V    DECIMAL(6,4)  DEFAULT NULL,
-  battery_current_A   DECIMAL(8,4)  DEFAULT NULL,
-  system_voltage_V    DECIMAL(6,4)  DEFAULT NULL,
-  power_W             DECIMAL(8,4)  DEFAULT NULL,
-  consumed_J          DECIMAL(10,4) DEFAULT NULL
+CREATE TABLE IF NOT EXISTS supercap (
+  id        BIGSERIAL     PRIMARY KEY,
+  mesure_id BIGINT        NOT NULL REFERENCES mesures(id) ON DELETE CASCADE,
+  tension_V DECIMAL(6,4)  DEFAULT NULL,
+  energie_J DECIMAL(10,4) DEFAULT NULL
 );
 
-CREATE TABLE IF NOT EXISTS battery (
-  id                  BIGSERIAL    PRIMARY KEY,
-  telemetry_id        BIGINT       NOT NULL REFERENCES telemetry(id) ON DELETE CASCADE,
-  device_id           VARCHAR(100) NOT NULL,
-  ts_ms               BIGINT       NOT NULL,
-  voltage_V           DECIMAL(6,4) DEFAULT NULL,
-  percentage          SMALLINT     DEFAULT NULL,
-  protection_cutoff_V DECIMAL(6,4) DEFAULT NULL,
-  charging            SMALLINT     DEFAULT 0
+CREATE TABLE IF NOT EXISTS batterie (
+  id        BIGSERIAL    PRIMARY KEY,
+  mesure_id BIGINT       NOT NULL REFERENCES mesures(id) ON DELETE CASCADE,
+  tension_V DECIMAL(6,4) DEFAULT NULL,
+  courant_A DECIMAL(8,4) DEFAULT NULL,
+  etat      VARCHAR(20)  DEFAULT NULL
 );
 
-CREATE TABLE IF NOT EXISTS diagnostics (
-  id              BIGSERIAL    PRIMARY KEY,
-  telemetry_id    BIGINT       NOT NULL REFERENCES telemetry(id) ON DELETE CASCADE,
-  device_id       VARCHAR(100) NOT NULL,
-  ts_ms           BIGINT       NOT NULL,
-  acs712_raw      INTEGER      DEFAULT NULL,
-  esp_wifi_active SMALLINT     DEFAULT NULL,
-  esp_now_tx_ok   SMALLINT     DEFAULT NULL,
-  mt3608_output_V DECIMAL(6,4) DEFAULT NULL
+CREATE TABLE IF NOT EXISTS systeme (
+  id        BIGSERIAL    PRIMARY KEY,
+  mesure_id BIGINT       NOT NULL REFERENCES mesures(id) ON DELETE CASCADE,
+  led_on    SMALLINT     DEFAULT NULL,
+  status    VARCHAR(50)  DEFAULT NULL
 );
 
 -- ── Admin par défaut (mot de passe : admin123) ───────────────────────────────

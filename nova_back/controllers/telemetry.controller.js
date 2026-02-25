@@ -89,7 +89,7 @@ exports.receive = async (req, res, next) => {
       await conn.query(
         `INSERT INTO devices (device_id, firmware)
          VALUES (?, ?)
-         ON DUPLICATE KEY UPDATE firmware = VALUES(firmware)`,
+         ON CONFLICT (device_id) DO UPDATE SET firmware = EXCLUDED.firmware`,
         [deviceId, firmware]
       );
 
@@ -183,7 +183,7 @@ exports.getHistory = async (req, res, next) => {
 
     const [rows] = await db.query(
       JOIN_SQL +
-      " WHERE m.device_id = ? AND m.created_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)" +
+      " WHERE m.device_id = ? AND m.created_at >= NOW() - (? * INTERVAL '1 minute')" +
       " ORDER BY m.timestamp_ms ASC LIMIT 1000",
       [deviceId, minutes]
     );
@@ -217,8 +217,10 @@ exports.getDevices = async (req, res, next) => {
 exports.test = async (req, res) => {
   const result = { ok: false, database: db.name, tables: [], error: null };
   try {
-    const [tables] = await db.query("SHOW TABLES");
-    result.tables = tables.map(r => Object.values(r)[0]);
+    const [rows] = await db.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('devices','mesures','supercap','batterie','systeme') ORDER BY table_name"
+    );
+    result.tables = rows.map(r => r.table_name);
     result.ok = result.tables.length > 0;
     return res.json(result);
   } catch (err) {
